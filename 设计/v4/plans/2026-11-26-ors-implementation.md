@@ -116,7 +116,7 @@ Use CTP queries from `quantlink-trading/ors/China` as reference, but do not copy
 - `ReqQryInvestorPosition`
 - `ReqQryTradingAccount`
 
-Include the production fixes listed in `003-ors-v4.md` §4.5:
+Include the production fixes listed in `003-ors-v4.md` §3.1:
 - 4040 production mode
 - MD/Trader flow directory split
 - login retry/backoff
