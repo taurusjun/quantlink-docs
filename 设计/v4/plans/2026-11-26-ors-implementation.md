@@ -707,9 +707,9 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 **文件：**
 - 新建：`ctp/query/QueryMapping.h`
 - 新建：`ctp/query/QueryMapping.cpp`
-- 新建：`ctp/query/QueryCadence.h`
+- 新建：`ctp/query/AccountQueryState.h`
 - 测试：`ctp/tests/AccountQueryTest.cpp`
-- 测试：`ctp/tests/QueryCadenceTest.cpp`
+- 测试：`ctp/tests/AccountQueryStateTest.cpp`
 - 修改：`ctp/core/ORSServer.cpp`
 
 **接口：**
@@ -718,14 +718,14 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 - `std::vector<PositionRow> mergePositionRows(std::vector<PositionRow> rows);`
 - `bool ORSServer::QueryAccount(const AccountQueryRequest&);`
 - `bool ORSServer::acceptAccountResponse(int ctpRequestId, const CThostFtdcTradingAccountField* row, const CThostFtdcRspInfoField* error);`
-- `class QueryCadence { bool tryAcquire(std::chrono::steady_clock::time_point now); };`
+- `class AccountQueryState { bool tryBegin(uint64_t requestId, std::chrono::steady_clock::time_point now); void bindCtpRequest(int ctpRequestId); std::optional<uint64_t> requestIdFor(int ctpRequestId) const; void finish(); };`
 
 **查询代码来源：**
 - `AccountQuery` / `AccountSnapshot` 字段：contract 1.0.0，不使用旧 contract。
-- CTP 行到 snapshot 的字段映射：从当前 v3 的 `ctp/src/CtpQueryService.cpp` 提取 `mapAccountSnapshot`、`mapPositionSnapshot`、`mergePositions` 的映射逻辑；只取映射，不保留 `CtpQueryService` 的 service、阻塞查询和 session 状态机。任务 1 已删除该文件时，用 `git show b017507:ctp/src/CtpQueryService.cpp` 作为代码参考。
+- CTP 行到 snapshot 的字段映射：从当前 v3 的 `ctp/src/CtpQueryService.cpp` 提取 `mapAccountSnapshot`、`mapPositionRow`、`mergePositionRows` 的映射逻辑；只取映射，不保留 `CtpQueryService` 的 service、阻塞查询和 session 状态机。任务 1 已删除该文件时，用 `git show b017507:ctp/src/CtpQueryService.cpp` 作为代码参考。
 - 查询触发、回调顺序、限流、重试：参考 `quantlink-trading/ors/China/src/ORSServer.cpp` 的 `ReqQryInstrument`、`ReqQryInvestorPosition`、`ReqQryTradingAccount` 和对应 `OnRsp...`；只取查询逻辑，不复制 `writePositionToFile` / `updatePositionFromFile`。
 - 公司 ORS `fromCompany/.../China` 的 `ReqQryPosition()` / `ReqQryAccount()` 是禁用或直接 `return`，持仓来自 `position.csv`，不能作为查询代码来源。
-- `ORSServer::QueryAccount`、`acceptAccountResponse`、`QueryCadence`、requestId 关联是 v4 新增接线代码，不是从公司 ORS 原样复制。
+- `ORSServer::QueryAccount`、`acceptAccountResponse`、`AccountQueryState`、requestId 关联是 v4 新增接线代码，不是从公司 ORS 原样复制。
 - 查询采用生产 ORS 内联模式：`ReqQry...` / `OnRspQry...` 都在 `ORSServer`，不引入 `QueryService` / `QueryCoordinator`。
 - 生产 ORS 的 `usleep` 重试和查询失败降级 READY 不进入 v4；重试由定时器/主循环调度，失败保持 FAILED。
 
@@ -737,13 +737,18 @@ void ctpErrorEmitsErrorSnapshotAndKeepsSessionState();
 void secondQueryInsideIntervalIsRejected();
 void successDoesNotChangeReadyStateOrOrderMap();
 void nanAndDblMaxAreSanitized();
+
+// AccountQueryStateTest.cpp
+void stateRejectsSecondQueryInsideInterval();
+void stateMapsCtpRequestIdBackToSdkRequestId();
+void finishAllowsNextQuery();
 ```
 
 - [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
-cmake --build build -j4 --target 'ctp_account_query_test|ctp_query_cadence_test'
-ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
+cmake --build build -j4 --target 'ctp_account_query_test|ctp_account_state_test'
+ctest --test-dir build -R 'ctp_account_query|ctp_account_state' --output-on-failure
 ```
 
 预期：失败，因为 account query 路径不存在。
@@ -752,7 +757,7 @@ ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-fail
 
 把 `git show b017507:ctp/src/CtpQueryService.cpp` 中的 `mapAccountSnapshot`、`mapPositionRow`、`mergePositionRows` 字段映射复制到 `ctp/query/QueryMapping.cpp`；不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
 
-不要把 account query 做成独立 `AccountQueryService`。查询入口、`requestIdByCtpRequestId` 和响应回调都放在 `ORSServer`，与公司 ORS 的 `ReqQry...`/`OnRspQry...` 结构一致。
+不要把 account query 做成独立 `AccountQueryService`。查询入口和响应回调放在 `ORSServer`，requestId 关联和节流放在 `AccountQueryState`，与公司 ORS 的 `ReqQry...`/`OnRspQry...` 结构一致。
 
 账户字段：
 
@@ -763,19 +768,19 @@ CloseProfit, PositionProfit, Deposit, Withdraw
 
 `requestId` 是 SDK 查询关联键；`tradingDay` 来自 CTP 行。`DBL_MAX` 和 NaN 映射为 `0.0`。
 
-`QueryCadence` 只负责 account query 的 1000 ms 节流；间隔内第二次查询返回拒绝结果，不能静默丢弃。它不处理 requestId、超时、重试或回调顺序。position/instrument 启动查询使用启动屏障和退避重试，不使用这个节流器。
+`AccountQueryState::tryBegin` 负责 account query 的 pending 和 1000 ms 节流；间隔内第二次查询返回拒绝结果，不能静默丢弃。它只保存 requestId 关联，不发送请求、不处理超时/重试/回调顺序。position/instrument 启动查询使用启动屏障和退避重试，不使用这个状态。
 
 - [ ] **步骤 4：接入 CTP 回调**
 
-`ORSServer::QueryAccount(AccountQueryRequest)` 只在 READY 时调用 `ReqQryTradingAccount`。`requestIdByCtpRequestId` 是 `ORSServer` 成员。
+`ORSServer::QueryAccount(AccountQueryRequest)` 先调用 `AccountQueryState::tryBegin`，成功且 READY 时调用 `ReqQryTradingAccount`，再 `bindCtpRequest`。`AccountQueryState` 是 `ORSServer` 成员。
 
-`OnRspQryTradingAccount` 调用 `acceptAccountResponse`，成功行映射为 `AccountSnapshot` 并调用 `transport.sendAccount`；错误或空结果发布错误 snapshot。它不得调用 `PushUpdate`、修改 `m_ordLocalMap` 或改变 READY。
+`OnRspQryTradingAccount` 调用 `acceptAccountResponse`，先用 `requestIdFor(nRequestID)` 找到 SDK requestId，再映射为 `AccountSnapshot` 并调用 `transport.sendAccount`；错误或空结果发布错误 snapshot，最后 `finish()`。它不得调用 `PushUpdate`、修改 `m_ordLocalMap` 或改变 READY。
 
 - [ ] **步骤 5：运行测试**
 
 ```bash
 cmake --build build -j4
-ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
+ctest --test-dir build -R 'ctp_account_query|ctp_account_state' --output-on-failure
 ```
 
 预期：通过。
@@ -998,7 +1003,7 @@ git commit -m "test(ors): record live gate"
 - **不做 SHM 兼容层：** `OrsTransport` 是新 seam；不要把 `ShmMgr` 藏在适配器后面。
 - **不做文件回退：** 持仓/合约状态只来自 CTP 查询；查询失败就是启动失败，不能读旧 CSV。
 - **Contract 代码生成在外部：** ORS 只使用 contract 仓库生成的头文件，不复制或重写 SBE schema。
-- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping`（纯字段映射）和 `QueryCadence`（account query 节流）。
+- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping`（纯字段映射）和 `AccountQueryState`（account query pending/requestId/节流）。
 - **只新增 account query：** position/instrument 查询是初始化语义，不是新订单状态机。
 - **原地重写：** 所有新代码直接进入 `ctp/`，不建 `ctp/v4`，不保留 v3/v4 双轨。
 
