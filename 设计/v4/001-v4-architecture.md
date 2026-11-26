@@ -136,7 +136,7 @@ account query 的接入方式和响应映射可以调整；**订单、撤单、R
 ### 4.4 源码基线
 
 ```text
-业务基线：/Volumes/DevDisk/146/3/dalong/infrastructure/China
+业务基线：/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China
 生产修复来源：/Users/wangjun/PG/RD/quantlink-trading/ors/China
 Aeron 传输参考：当前 quantlink-ors 的 Aeron/发布/订阅实现
 ```
