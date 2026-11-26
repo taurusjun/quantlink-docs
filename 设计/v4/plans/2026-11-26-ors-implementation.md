@@ -1,30 +1,30 @@
-# ORS Implementation Plan
+# ORS 实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给执行代理：** 必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，按任务逐项执行。步骤使用 `- [ ]` 跟踪。
 
-**Goal:** 用公司 ORS 的 CTP 订单/RMS 行为重写 ORS：一个账户一个进程，删除 SHM 和状态文件，改为 Aeron transport，并只在 account/position/instrument 查询接入方式上做新增。
+**目标：** 用公司 ORS 的 CTP 订单/RMS 行为重写 ORS：一个账户一个进程，删除 SHM 和状态文件，改为 Aeron transport，只在 account/position/instrument 查询接入方式上做新增。
 
-**Architecture:** 以 `/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China` 的 CTP 分支为业务主干，保留 `ORSServer`、`OrderInfo`、`m_ordLocalMap`、`m_ordExchMap`、RMS 和 CTP 回调；把 SHM 输入/输出和状态文件替换为 `OrsTransport` 与 CTP 查询。Aeron 只承载 contract 1.0.0 消息，不把 v3 `OrderStatus/CancelState` 状态机带进核心。
+**架构：** 以 `/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China` 的 CTP 分支为业务主干，保留 `ORSServer`、`OrderInfo`、`m_ordLocalMap`、`m_ordExchMap`、RMS 和 CTP 回调；把 SHM 输入/输出和状态文件替换为 `OrsTransport` 与 CTP 查询。Aeron 只承载 contract 1.0.0 消息，不把旧 `OrderStatus/CancelState` 状态机带进核心。
 
-**Tech Stack:** C++20, CMake, CTP TraderApi/MdApi, Aeron C++ client, contract 1.0.0 SBE, Rocky Linux 190.
+**技术栈：** C++20、CMake、CTP TraderApi/MdApi、Aeron C++ 客户端、contract 1.0.0 SBE、Rocky Linux 190。
 
-**Spec:** `quantlink-docs/设计/v4/003-ors-v4.md`
+**规格：** `quantlink-docs/设计/v4/003-ors-v4.md`
 
-**Contract:** `quantlink-venue-contract/abi/sbe/quantlink-fin-sbe.xml`
+**Contract：** `quantlink-venue-contract/abi/sbe/quantlink-fin-sbe.xml`
 
-## Prerequisite
+## 前置条件
 
-C++ contract headers are produced by the contract repository, not by this ORS plan. Before Task 4, the generated headers for `OrsRequest`, `OrsResponse`, `AccountQuery`, `AccountSnapshot`, `MarketUpdate`, `SessionEvent`, `ClientRegister`, and `ClientRegisterResponse` must exist under the ORS build's `CONTRACT_GENERATED_DIR`. Do not duplicate or hand-write SBE codecs in ORS.
+C++ contract 头文件由 contract 仓库生成，不属于本 ORS 计划。开始任务 4 前，`OrsRequest`、`OrsResponse`、`AccountQuery`、`AccountSnapshot`、`MarketUpdate`、`SessionEvent`、`ClientRegister`、`ClientRegisterResponse` 的生成头文件必须位于 ORS 构建的 `CONTRACT_GENERATED_DIR`。不要在 ORS 里重复实现或手写 SBE 编解码。
 
-## Global Constraints
+## 全局约束
 
 ```text
 公司 ORS 是订单/RMS/账户/持仓业务基线
-CTP only: 编译时固定 _USE_CTP_，不导入 Sgit 分支、Sgit 头文件或 Sgit 回调
+CTP only：编译时固定 _USE_CTP_，不导入 Sgit 分支、Sgit 头文件或 Sgit 回调
 一个 ORS 进程 = 一个 CTP 账户 = 一个 TraderApi = 一个 MdApi
 不保留 SHM request/response/client-store
 不保留 position.csv / contract 状态文件；配置文件和凭据文件仍可读
-不沿用 v3 CtpAdapter 的 OrderStatus/CancelState 状态机
+不沿用旧 CtpAdapter 的 OrderStatus/CancelState 状态机
 不重写公司 ORS 的订单、撤单、RMS、终态逻辑
 account query 是唯一新增业务接口；position/instrument 只改成查询初始化
 OrderID 保持 clientId * 1_000_000 + orderCount
@@ -32,7 +32,7 @@ contract 固定 1.0.0；不引入旧 contract
 纳入 003 §3.1 的生产修复：4040 模式、MD/Trader flow 目录拆分、登录重试/退避、MD 重订阅、MD 档位清零、查询限流
 ```
 
-## Review Focus
+## 审查重点
 
 - 未知或已从 map 删除的订单撤单：必须返回 `CANCEL_ORDER_REJECT`，不能静默丢，不能重新插入订单。
 - 成交先于终态：`TRADE_CONFIRM` 不能让订单提前从 map 删除；只有公司 ORS 认定的终态才能清理。
@@ -43,37 +43,37 @@ contract 固定 1.0.0；不引入旧 contract
 
 ---
 
-### Task 1: Import CTP-only company ORS core
+### 任务 1：导入公司 ORS CTP-only 核心
 
-**Files:**
-- Create: `ctp/core/ORSServer.h`
-- Create: `ctp/core/ORSServer.cpp`
-- Create: `ctp/core/MdSpi.h`
-- Create: `ctp/core/MdSpi.cpp`
-- Create: `ctp/core/MDHandler.h`
-- Create: `ctp/core/MDHandler.cpp`
-- Create: `ctp/core/main.cpp`
-- Create: `ctp/core/OrsTypes.h`
-- Create: `ctp/core/OrsConfig.h`
-- Create: `ctp/core/OrsConfig.cpp`
-- Create: `ctp/transport/OrsTransport.h`
-- Create: `ctp/transport/InMemoryOrsTransport.h`
-- Create: `ctp/transport/InMemoryOrsTransport.cpp`
-- Create: `ctp/vendor/hftbase/` for the minimum transitive headers
-- Modify: `ctp/CMakeLists.txt`
-- Delete: `ctp/include/ors/ctp/`, `ctp/src/Aeron*.cpp`, `ctp/src/Contract*.cpp`, `ctp/src/Ctp*.cpp`, `ctp/src/InboundValidation.cpp`, `ctp/src/MarketDataFreshness.cpp`, `ctp/src/OfferRetry.cpp`, `ctp/src/QueryCadence.cpp`, `ctp/src/RuntimeConfig.cpp`, `ctp/src/SessionRecovery.cpp`, `ctp/src/Smoke*.cpp`, `ctp/src/TextEncoding.cpp`, `ctp/src/main.cpp`, `ctp/tests/`
-- Keep: `ctp/include/ors/base/`, `ctp/src/base/`, `third_party/inih/`
-- Test: `ctp/tests/CoreLinkTest.cpp`
+**文件：**
+- 新建：`ctp/core/ORSServer.h`
+- 新建：`ctp/core/ORSServer.cpp`
+- 新建：`ctp/core/MdSpi.h`
+- 新建：`ctp/core/MdSpi.cpp`
+- 新建：`ctp/core/MDHandler.h`
+- 新建：`ctp/core/MDHandler.cpp`
+- 新建：`ctp/core/main.cpp`
+- 新建：`ctp/core/OrsTypes.h`
+- 新建：`ctp/core/OrsConfig.h`
+- 新建：`ctp/core/OrsConfig.cpp`
+- 新建：`ctp/transport/OrsTransport.h`
+- 新建：`ctp/transport/InMemoryOrsTransport.h`
+- 新建：`ctp/transport/InMemoryOrsTransport.cpp`
+- 新建：`ctp/vendor/hftbase/`，只放最小传递依赖头文件
+- 修改：`ctp/CMakeLists.txt`
+- 删除：`ctp/include/ors/ctp/`、`ctp/src/Aeron*.cpp`、`ctp/src/Contract*.cpp`、`ctp/src/Ctp*.cpp`、`ctp/src/InboundValidation.cpp`、`ctp/src/MarketDataFreshness.cpp`、`ctp/src/OfferRetry.cpp`、`ctp/src/QueryCadence.cpp`、`ctp/src/RuntimeConfig.cpp`、`ctp/src/SessionRecovery.cpp`、`ctp/src/Smoke*.cpp`、`ctp/src/TextEncoding.cpp`、`ctp/src/main.cpp`、`ctp/tests/`
+- 保留：`ctp/include/ors/base/`、`ctp/src/base/`、`third_party/inih/`
+- 测试：`ctp/tests/CoreLinkTest.cpp`
 
-**Interfaces:**
+**接口：**
 - `struct OrsConfig { std::string brokerId, investorId, password, authCode, appId, tradeFront, mdFront, flowDir, logPath, accountId, venueId, orsId; int requestStream, responseStream, accountStream, marketDataStream, sessionStream, controlStream; };`
-- `OrsTypes.h` defines the transport-facing values:
+- `OrsTypes.h` 定义 transport 使用的值：
   - `struct AccountQueryRequest { uint64_t requestId; std::string accountId; uint64_t timestamp; };`
   - `struct AccountSnapshot { uint64_t requestId; std::string accountId, tradingDay; double balance, available, margin, frozenMargin, commission, closeProfit, positionProfit, deposit, withdraw; uint32_t errorCode; std::string errorMsg; uint64_t timestamp; };`
   - `struct SessionEvent { std::string venueId, accountId, orsId, state, reason; uint64_t timestamp; };`
   - `struct ClientRegisterRequest { uint64_t requestId; std::string instanceId, accountId, environment; uint64_t timestamp; };`
   - `struct ClientRegisterResult { uint64_t requestId; uint32_t clientId, errorCode; std::string errorMsg; uint64_t timestamp; };`
-- `class OrsTransport`:
+- `class OrsTransport`：
   - `using RequestHandler = std::function<void(illuminati::infra::RequestMsg*)>;`
   - `using AccountQueryHandler = std::function<void(const AccountQueryRequest&)>;`
   - `using ClientRegisterHandler = std::function<void(const ClientRegisterRequest&)>;`
@@ -84,7 +84,7 @@ contract 固定 1.0.0；不引入旧 contract
   - `virtual bool sendAccount(const AccountSnapshot&) = 0;`
   - `virtual bool sendClientRegisterResponse(const ClientRegisterResult&) = 0;`
   - `virtual void stop() = 0;`
-- `class ORSServer`:
+- `class ORSServer`：
   - `ORSServer(OrsConfig, OrsTransport&);`
   - `void Start();`
   - `void Stop();`
@@ -92,9 +92,9 @@ contract 固定 1.0.0；不引入旧 contract
   - `void PushUpdate(illuminati::infra::ResponseMsg*);`
   - `void QueryAccount(const AccountQueryRequest&);`
   - `void RegisterClient(const ClientRegisterRequest&);`
-- `ORSServer` constructor must not create CTP APIs, read position/contract files, or start threads. CTP creation and login happen only in `Start()`, so tests can construct the core without a network.
+- `ORSServer` 构造函数不得创建 CTP API、读取 position/contract 文件或启动线程。CTP 创建和登录只在 `Start()` 中发生，测试才能在不连网的情况下构造核心。
 
-- [ ] **Step 1: Write the failing link test**
+- [ ] **步骤 1：先写失败的链接测试**
 
 ```cpp
 // ctp/tests/CoreLinkTest.cpp
@@ -108,20 +108,20 @@ int main() {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试，确认失败**
 
-Run:
+运行：
 
 ```bash
 cmake -S . -B build
 cmake --build build -j4 --target ctp_core_link_test
 ```
 
-Expected: FAIL because `ctp/core/ORSServer.h` and `ctp/transport/InMemoryOrsTransport.h` do not exist.
+预期：失败，因为 `ctp/core/ORSServer.h` 和 `ctp/transport/InMemoryOrsTransport.h` 不存在。
 
-- [ ] **Step 3: Import the CTP-only company files**
+- [ ] **步骤 3：导入公司 CTP-only 文件**
 
-Copy from `/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China`:
+从 `/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China` 复制：
 
 ```text
 src/ORSServer.cpp
@@ -132,11 +132,11 @@ include/MdSpi.h
 include/MDHandler.h
 ```
 
-Do not import `SgitFtdc*`, `TraderSpi.*`, `reuters*`, `dumprecorder.*`, `marketdatahandler.*`, or `tradedatahandler.*`.
+不要导入 `SgitFtdc*`、`TraderSpi.*`、`reuters*`、`dumprecorder.*`、`marketdatahandler.*`、`tradedatahandler.*`。
 
-Change every `#ifdef _USE_CTP_` to keep only the CTP branch. Remove the Sgit overloads and Sgit fields from `ORSServer.h/cpp` and `MdSpi.h/cpp`. Set `_USE_CTP_` in `ctp/CMakeLists.txt`.
+把每个 `#ifdef _USE_CTP_` 改为只保留 CTP 分支。从 `ORSServer.h/cpp` 和 `MdSpi.h/cpp` 删除 Sgit 重载和 Sgit 字段。在 `ctp/CMakeLists.txt` 定义 `_USE_CTP_`。
 
-Delete the v3 active implementation in the same task; do not keep a parallel tree:
+同一次任务中删除旧 active 实现，不保留并行目录：
 
 ```text
 ctp/include/ors/ctp/
@@ -155,11 +155,11 @@ ctp/src/main.cpp
 ctp/tests/
 ```
 
-Keep `ctp/include/ors/base/`, `ctp/src/base/`, and `third_party/inih/`; the new core uses them.
+保留 `ctp/include/ors/base/`、`ctp/src/base/`、`third_party/inih/`，新核心继续使用。
 
-- [ ] **Step 4: Add OrsConfig and transport seam**
+- [ ] **步骤 4：增加 OrsConfig 和 transport seam**
 
-`OrsConfig::load(path)` reads only configuration:
+`OrsConfig::load(path)` 只读配置：
 
 ```text
 BROKER_ID, INVESTOR_ID, PASSWORD, AUTH_CODE, APP_ID
@@ -171,25 +171,25 @@ MARKET_DATA_STREAM, SESSION_STREAM, CONTROL_STREAM
 RMS_CONFIG_FILE, RMS_FIRMWIDE_CONFIG_FILE
 ```
 
-Use `ors::base::ConfigFile`. Do not add `POSITION_FILE`, `CONTRACT_FILE`, `REQUEST_SHMKEY`, `RESPONSE_SHMKEY`, `CLIENT_STORE_KEY`, or `MAX_CLIENTS`.
+使用 `ors::base::ConfigFile`。不要新增 `POSITION_FILE`、`CONTRACT_FILE`、`REQUEST_SHMKEY`、`RESPONSE_SHMKEY`、`CLIENT_STORE_KEY`、`MAX_CLIENTS`。
 
-`InMemoryOrsTransport` stores sent `ResponseMsg`, `MarketUpdateNew`, `SessionEvent`, `AccountSnapshot`, and `ClientRegisterResult`; `start()` stores callbacks and returns true. It is a test double and an initial stand-in.
+`InMemoryOrsTransport` 保存发送的 `ResponseMsg`、`MarketUpdateNew`、`SessionEvent`、`AccountSnapshot`、`ClientRegisterResult`；`start()` 保存回调并返回 true。它是测试替身，也是初始占位实现。
 
-- [ ] **Step 5: Move CTP startup out of the constructor**
+- [ ] **步骤 5：把 CTP 启动移出构造函数**
 
-`ORSServer::ORSServer` only initializes config, maps, locks, RMS, and transport reference.
+`ORSServer::ORSServer` 只初始化配置、map、锁、RMS 和 transport 引用。
 
-`ORSServer::Start` does:
+`ORSServer::Start` 执行：
 
 ```text
-create TraderApi/MdApi
-register fronts
+创建 TraderApi/MdApi
+注册 front
 Init/Join
 ```
 
-No `createClientStore`, `createRequestClients`, `createResponseClient`, `startMonitorAsyncORSRequest`, `updatePositionFromFile`, or `writePositionToFile`.
+不调用 `createClientStore`、`createRequestClients`、`createResponseClient`、`startMonitorAsyncORSRequest`、`updatePositionFromFile`、`writePositionToFile`。
 
-Remove from `ORSServer`:
+从 `ORSServer` 删除：
 
 ```text
 ShmMgr m_shmmanager;
@@ -199,13 +199,13 @@ m_clientStoreKey/m_maxClients
 startReqRespLogger()
 ```
 
-`PushUpdate`, `RmsError`, and `RmsWarning` call `transport_.sendResponse(...)`; keep the existing RMS/position updates after that call. `Start()` does not call `startMonitorAsyncORSRequest()`.
+`PushUpdate`、`RmsError`、`RmsWarning` 调用 `transport_.sendResponse(...)`；之后保留原有 RMS/持仓更新。`Start()` 不调用 `startMonitorAsyncORSRequest()`。
 
-`MDHandler` still includes `mdshmwriter.h` at this stage. Add a temporary `ctp/vendor/hftbase/mdshmwriter.h` no-op writer that discards writes and does not create SHM. Task 9 removes it.
+此时 `MDHandler` 仍引用 `mdshmwriter.h`。在 `ctp/vendor/hftbase/mdshmwriter.h` 放一个临时 no-op writer，丢弃写入、不创建 SHM。任务 9 删除它。
 
-`ORSServer::Stop` does not write position files and does not shut down SHM.
+`ORSServer::Stop` 不写持仓文件，不关闭 SHM。
 
-- [ ] **Step 6: Build and run the link test**
+- [ ] **步骤 6：构建并运行链接测试**
 
 ```bash
 cmake -S . -B build
@@ -213,29 +213,29 @@ cmake --build build -j4 --target ctp_core_link_test
 ctest --test-dir build -R ctp_core_link --output-on-failure
 ```
 
-Expected: PASS. The v3 active sources are removed by this task; git history is the only copy.
+预期：通过。旧 active 源码在本任务中删除，git 历史是唯一副本。
 
-- [ ] **Step 7: Commit**
+- [ ] **步骤 7：提交**
 
 ```bash
-git add ctp ctp/CMakeLists.txt
+git add ctp
 git commit -m "feat(ors): import ctp-only company core with transport seam"
 ```
 
 ---
 
-### Task 2: Remove state files and initialize positions from CTP
+### 任务 2：删除状态文件，改为 CTP 查询初始化
 
-**Files:**
-- Create: `ctp/core/PositionTable.h`
-- Create: `ctp/core/PositionTable.cpp`
-- Modify: `ctp/core/ORSServer.cpp`
-- Modify: `ctp/core/ORSServer.h`
-- Test: `ctp/tests/PositionTableTest.cpp`
+**文件：**
+- 新建：`ctp/core/PositionTable.h`
+- 新建：`ctp/core/PositionTable.cpp`
+- 修改：`ctp/core/ORSServer.cpp`
+- 修改：`ctp/core/ORSServer.h`
+- 测试：`ctp/tests/PositionTableTest.cpp`
 
-**Interfaces:**
+**接口：**
 - `struct ContractPosition { int onLongPos; int todayLongPos; int onShortPos; int todayShortPos; };`
-- `class PositionTable`:
+- `class PositionTable`：
   - `void replace(std::vector<PositionRow> rows);`
   - `ContractPosition get(std::string_view symbol) const;`
   - `bool empty() const;`
@@ -243,7 +243,7 @@ git commit -m "feat(ors): import ctp-only company core with transport seam"
 - `void ORSServer::onInstrumentQueryComplete();`
 - `void ORSServer::onPositionQueryComplete();`
 
-- [ ] **Step 1: Write failing table tests**
+- [ ] **步骤 1：先写失败的持仓表测试**
 
 ```cpp
 void replaceMergesLongAndShort();
@@ -252,20 +252,20 @@ void queryFailureLeavesTableEmpty();
 void missingInstrumentReturnsZeroPosition();
 ```
 
-The test constructs rows directly; it never opens `position.csv` or `contract_*.csv`.
+测试直接构造持仓行，不打开 `position.csv` 或 `contract_*.csv`。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_position_table_test
 ctest --test-dir build -R ctp_position_table --output-on-failure
 ```
 
-Expected: FAIL because `PositionTable` does not exist.
+预期：失败，因为 `PositionTable` 不存在。
 
-- [ ] **Step 3: Implement PositionTable**
+- [ ] **步骤 3：实现 PositionTable**
 
-`replace()` builds a new `std::map<std::string, ContractPosition>` outside the lock and swaps it under `std::mutex`. It handles CTP long/short rows:
+`replace()` 在锁外构造新的 `std::map<std::string, ContractPosition>`，再在 `std::mutex` 内交换。处理 CTP 多空行：
 
 ```text
 Direction == THOST_FTDC_PD_Long:
@@ -280,36 +280,36 @@ Direction == THOST_FTDC_PD_Short:
   todayLongPos = 0
 ```
 
-A row with `Position == 0` is ignored. An empty query result clears the table.
+`Position == 0` 的行忽略。空查询结果必须清空整张表。
 
-- [ ] **Step 4: Integrate CTP query initialization**
+- [ ] **步骤 4：接入 CTP 查询初始化**
 
-After login completes:
+登录完成后：
 
 ```text
-publish CONNECTING/AUTHENTICATING/LOGGING_IN/SETTLEMENT_CONFIRMING
+发布 CONNECTING/AUTHENTICATING/LOGGING_IN/SETTLEMENT_CONFIRMING
 ReqQryInstrument
-  -> OnRspQryInstrument collects MasterData
-  -> bIsLast: m_symbolMap = collected; publish QUERYING_INSTRUMENTS
+  -> OnRspQryInstrument 收集 MasterData
+  -> bIsLast：m_symbolMap = collected；发布 QUERYING_INSTRUMENTS
   -> ReqQryInvestorPosition
-  -> OnRspQryInvestorPosition collects PositionRow
-  -> bIsLast: positionTable.replace(rows); onPositionQueryComplete()
-  -> publish READY
+  -> OnRspQryInvestorPosition 收集 PositionRow
+  -> bIsLast：positionTable.replace(rows)；onPositionQueryComplete()
+  -> 发布 READY
 ```
 
-On any query error or timeout, publish `SessionEvent.state = FAILED` with the CTP error/reason; do not enter READY and do not fall back to old file or old in-memory positions.
+任何查询错误或超时，发布 `SessionEvent.state = FAILED`，带 CTP 错误/reason；不得进入 READY，不得回退到旧文件或旧内存持仓。
 
-Use separate Trader/MD flow directories from `OrsConfig`. Apply the `quantlink-trading` production fixes here:
+Trader/MD 使用 `OrsConfig` 中分开的 flow 目录。这里纳入 `quantlink-trading` 的生产修复：
 
 ```text
-login retry with backoff; pre-open health check
-instrument query rate limit (no back-to-back queries)
-position query full-table replacement; empty result clears
-4040 production/evaluation mode from config
-CTP 6.7.11 login signature/build compatibility
+登录重试 + 退避；开盘前检查
+instrument query 限流，不允许背靠背查询
+position query 整表替换；空结果清空
+4040 生产/评测模式由配置驱动
+CTP 6.7.11 登录签名/构建兼容
 ```
 
-`SetCombOffsetFlag` reads only `PositionTable`. Remove:
+`SetCombOffsetFlag` 只读 `PositionTable`。删除：
 
 ```text
 m_positionFile
@@ -317,28 +317,28 @@ m_contractFile
 fpContractFile
 updatePositionFromFile()
 writePositionToFile()
-CONTRACT_FILE write in OnRtnInstrumentStatus
-OnRspQryInvestorPositionDetail file comparison branch
+OnRtnInstrumentStatus 中的 CONTRACT_FILE 写入
+OnRspQryInvestorPositionDetail 的文件比对分支
 ```
 
-- [ ] **Step 5: Verify no file-backed state**
+- [ ] **步骤 5：确认没有文件状态**
 
 ```bash
 rg 'POSITION_FILE|CONTRACT_FILE|position\.csv|contract_' ctp
 ```
 
-Expected: no production matches; only test names or this plan may mention them.
+预期：生产代码无匹配；只剩测试名或本文档中的说明。
 
-- [ ] **Step 6: Run tests**
+- [ ] **步骤 6：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R 'ctp_position_table|ctp_core_link' --output-on-failure
 ```
 
-Expected: PASS.
+预期：通过。
 
-- [ ] **Step 7: Commit**
+- [ ] **步骤 7：提交**
 
 ```bash
 git add ctp
@@ -347,23 +347,24 @@ git commit -m "feat(ors): replace position and contract files with ctp queries"
 
 ---
 
-### Task 3: Replace base libraries and unify logging
+### 任务 3：替换基础库并统一日志
 
-**Files:**
-- Create: `ctp/log/Log.h`
-- Create: `ctp/log/Log.cpp`
-- Create: `ctp/tests/LogFacadeTest.cpp`
-- Modify: `ctp/core/ORSServer.cpp`
-- Modify: `ctp/core/MdSpi.cpp`
-- Modify: `ctp/core/MDHandler.cpp`
-- Modify: `ctp/vendor/hftbase/`
-- Modify: `ctp/CMakeLists.txt`
+**文件：**
+- 新建：`ctp/log/Log.h`
+- 新建：`ctp/log/Log.cpp`
+- 新建：`ctp/tests/LogFacadeTest.cpp`
+- 修改：`ctp/core/ORSServer.cpp`
+- 修改：`ctp/core/MdSpi.cpp`
+- 修改：`ctp/core/MDHandler.cpp`
+- 修改：`ctp/vendor/hftbase/`
+- 修改：`ctp/CMakeLists.txt`
 
-**Interfaces:**
+**接口：**
 - `void ors::log::info(std::string_view event, std::initializer_list<LogField> fields);`
-- `void ors::log::warn(...)`, `error(...)`, `metrics(const Metrics&)`.
+- `void ors::log::warn(...)`、`error(...)`、`metrics(const Metrics&)`。
+- 内部可以使用 `ors_base::logEvent` / spdlog；业务代码不得直接调用 spdlog、`ILOG`、`std::cerr`、`StatsCollector`。
 
-- [ ] **Step 1: Write failing log tests**
+- [ ] **步骤 1：先写失败的日志测试**
 
 ```cpp
 void eventIsOneJsonLine();
@@ -372,33 +373,33 @@ void credentialsAreRedacted();
 void metricsAreAggregatedNotPerTick();
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_log_facade_test
 ctest --test-dir build -R ctp_log_facade --output-on-failure
 ```
 
-Expected: FAIL because the facade does not exist.
+预期：失败，因为日志 facade 不存在。
 
-- [ ] **Step 3: Replace infrastructure**
+- [ ] **步骤 3：替换基础设施**
 
-Replace with std/`ors_base`:
+用 std/`ors_base` 替换：
 
 ```text
 Configfile          -> ors::base::ConfigFile
 CasLock             -> std::mutex / std::atomic
 ITime_ClockRT       -> std::chrono
-StatsCollector      -> counters + 60s metrics event
+StatsCollector      -> 计数 + 60 秒 metrics 事件
 ILOG                -> ors::log facade
 ProcessSettings     -> std::filesystem / config
 ```
 
-Keep `orderresponse.h`, `marketupdateNew.h`, `rmsimpl.hpp` checks, and tinyxml2 where required. Do not rewrite RMS rules.
+保留 `orderresponse.h`、`marketupdateNew.h`、`rmsimpl.hpp` 的检查逻辑和必需时的 tinyxml2。不要重写 RMS 规则。
 
-Remove production `std::cerr`/`std::cout`; keep them only for `--help`, `--version`, config summary, and smoke tools. Delete `[ctp]` text logs.
+删除生产代码中的 `std::cerr`/`std::cout`；只允许 `--help`、`--version`、配置摘要、smoke 工具保留。删除 `[ctp]` 文本日志。
 
-- [ ] **Step 4: Verify**
+- [ ] **步骤 4：验证**
 
 ```bash
 cmake --build build -j4
@@ -406,9 +407,9 @@ ctest --test-dir build -R ctp_log_facade --output-on-failure
 rg 'ILOG|StatsCollector|std::cerr' ctp/core ctp/transport ctp/query
 ```
 
-Expected: PASS; no production matches for the forbidden loggers.
+预期：通过；生产代码无禁用 logger。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add ctp
@@ -417,15 +418,15 @@ git commit -m "refactor(ors): replace illuminati infrastructure and unify logs"
 
 ---
 
-### Task 4: Add contract 1.0.0 codec mapping
+### 任务 4：增加 contract 1.0.0 编解码映射
 
-**Files:**
-- Create: `ctp/contract/OrsCodec.h`
-- Create: `ctp/contract/OrsCodec.cpp`
-- Create: `ctp/contract/OrsCodecTest.cpp`
-- Modify: `ctp/CMakeLists.txt`
+**文件：**
+- 新建：`ctp/contract/OrsCodec.h`
+- 新建：`ctp/contract/OrsCodec.cpp`
+- 新建：`ctp/contract/OrsCodecTest.cpp`
+- 修改：`ctp/CMakeLists.txt`
 
-**Interfaces:**
+**接口：**
 - `illuminati::infra::RequestMsg decodeRequest(const com::quantlink::contract::sbe::OrsRequestDecoder&);`
 - `std::size_t encodeResponse(const illuminati::infra::ResponseMsg&, char* dst, std::size_t capacity);`
 - `std::size_t encodeMarketUpdate(const illuminati::md::MarketUpdateNew&, char* dst, std::size_t capacity);`
@@ -434,9 +435,9 @@ git commit -m "refactor(ors): replace illuminati infrastructure and unify logs"
 - `ClientRegisterRequest decodeClientRegister(const com::quantlink::contract::sbe::ClientRegisterDecoder&);`
 - `std::size_t encodeClientRegisterResponse(const ClientRegisterResult&, char* dst, std::size_t capacity);`
 
-All encoders wrap the supplied destination buffer and return encoded length including the SBE header. Decoders receive an already-wrapped decoder; the transport owns frame validation.
+所有编码器包装调用方提供的目标缓冲区，返回包含 SBE header 的编码长度。解码器接收已包装的 decoder；帧校验由 transport 负责。
 
-- [ ] **Step 1: Write failing codec tests**
+- [ ] **步骤 1：先写失败的编解码测试**
 
 ```cpp
 void requestMatchesCompanyRequestMsg();
@@ -446,20 +447,20 @@ void accountSnapshotKeepsRequestIdAndFields();
 void clientRegisterResponseKeepsClientIdAndError();
 ```
 
-Use one real company `RequestMsg` fixture and one `ResponseMsg` fixture. Assert byte fields, fixed-width strings, `double ExchangeOrderId`, and 20 bid/ask levels.
+使用一份真实公司 `RequestMsg` 样例和一份 `ResponseMsg` 样例。断言字节字段、定宽字符串、`double ExchangeOrderId` 和 20 档买卖盘。
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_ors_codec_test
 ctest --test-dir build -R ctp_ors_codec --output-on-failure
 ```
 
-Expected: FAIL because `OrsCodec` and generated headers are not available.
+预期：失败，因为 `OrsCodec` 和生成头文件不可用。
 
-- [ ] **Step 3: Implement field-by-field mapping**
+- [ ] **步骤 3：逐字段实现映射**
 
-Do not define ORS order state in the codec. Mapping rules:
+不要在 codec 中定义 ORS 订单状态。映射规则：
 
 ```text
 OrsRequest.orderId          -> RequestMsg.OrderID
@@ -467,21 +468,21 @@ OrsRequest.requestType     -> RequestMsg.Request_Type
 OrsRequest.transactionType -> RequestMsg.Transaction_Type
 OrsRequest.exchangeType    -> RequestMsg.Exchange_Type
 OrsRequest.contractDescription -> RequestMsg.Contract_Description
-ResponseMsg.ExchangeOrderId -> OrsResponse.exchangeOrderId (double, no cast)
+ResponseMsg.ExchangeOrderId -> OrsResponse.exchangeOrderId（double，不转类型）
 ```
 
-Fixed-width strings use the existing `ors::base::fitContractField` or an explicit copy with truncation; never rely on `strcpy`.
+定宽字符串使用现有 `ors::base::fitContractField` 或显式复制并截断，不能依赖 `strcpy`。
 
-- [ ] **Step 4: Run tests**
+- [ ] **步骤 4：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R ctp_ors_codec --output-on-failure
 ```
 
-Expected: PASS. Also run the contract repository's Java round-trip tests before changing field widths.
+预期：通过。修改字段宽度前先跑 contract 仓库的 Java round-trip 测试。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add ctp/contract ctp/CMakeLists.txt
@@ -490,16 +491,16 @@ git commit -m "feat(ors): map contract 1.0.0 frames to company messages"
 
 ---
 
-### Task 5: Implement Aeron transport
+### 任务 5：实现 Aeron transport
 
-**Files:**
-- Create: `ctp/transport/AeronOrsTransport.h`
-- Create: `ctp/transport/AeronOrsTransport.cpp`
-- Create: `ctp/transport/FakeFramePublisher.h`
-- Test: `ctp/tests/AeronOrsTransportTest.cpp`
-- Modify: `ctp/CMakeLists.txt`
+**文件：**
+- 新建：`ctp/transport/AeronOrsTransport.h`
+- 新建：`ctp/transport/AeronOrsTransport.cpp`
+- 新建：`ctp/transport/FakeFramePublisher.h`
+- 测试：`ctp/tests/AeronOrsTransportTest.cpp`
+- 修改：`ctp/CMakeLists.txt`
 
-**Interfaces:**
+**接口：**
 - `AeronOrsTransport(OrsConfig, FramePublisher&, FrameSubscriber&);`
 - `bool sendResponse(const ResponseMsg&) override;`
 - `bool sendMarketData(const MarketUpdateNew&) override;`
@@ -508,9 +509,9 @@ git commit -m "feat(ors): map contract 1.0.0 frames to company messages"
 - `bool sendClientRegisterResponse(const ClientRegisterResult&) override;`
 - `void poll(int fragmentLimit);`
 
-`FramePublisher`/`FrameSubscriber` are thin wrappers around the existing `AeronPublisher` and Aeron subscription. Do not duplicate offer-retry logic.
+`FramePublisher`/`FrameSubscriber` 是现有 `AeronPublisher` 和 Aeron subscription 的薄包装。不要复制 offer-retry 逻辑。
 
-- [ ] **Step 1: Write failing transport tests**
+- [ ] **步骤 1：先写失败的 transport 测试**
 
 ```cpp
 void responseUsesResponseStream();
@@ -522,30 +523,30 @@ void controlFrameRoutesToClientRegisterHandler();
 void requestFrameRoutesToProcessRequest();
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_aeron_transport_test
 ctest --test-dir build -R ctp_aeron_transport --output-on-failure
 ```
 
-Expected: FAIL because `AeronOrsTransport` does not exist.
+预期：失败，因为 `AeronOrsTransport` 不存在。
 
-- [ ] **Step 3: Implement send paths**
+- [ ] **步骤 3：实现发送路径**
 
-One SBE message per Aeron frame. Use contract stream IDs:
+一个 Aeron frame 只放一个 SBE message。使用 contract stream：
 
 ```text
 REQUEST=1, RESPONSE=2, ACCOUNT=3, MARKET_DATA=4, SESSION=5, CONTROL=6
 ```
 
-`sendResponse` encodes `OrsResponse`; `sendMarketData` encodes `MarketUpdate`; `sendSession` encodes `SessionEvent`; `sendAccount` encodes `AccountSnapshot`; `sendClientRegisterResponse` encodes `ClientRegisterResponse`.
+`sendResponse` 编码 `OrsResponse`；`sendMarketData` 编码 `MarketUpdate`；`sendSession` 编码 `SessionEvent`；`sendAccount` 编码 `AccountSnapshot`；`sendClientRegisterResponse` 编码 `ClientRegisterResponse`。
 
-Use `offerWithRetry` from `ors/ctp/OfferRetry.h`. On `Published` return true. On back-pressure/not-connected/closed, return false and publish a `publish.fail` event; do not drop silently.
+使用 `ors/ctp/OfferRetry.h` 的 `offerWithRetry`。`Published` 返回 true；back-pressure/not-connected/closed 返回 false 并发布 `publish.fail` 事件；不能静默丢弃。
 
-- [ ] **Step 4: Implement receive paths**
+- [ ] **步骤 4：实现接收路径**
 
-`poll()` decodes one frame at a time:
+`poll()` 每次解码一个 frame：
 
 ```text
 REQUEST -> decodeRequest -> RequestHandler
@@ -553,18 +554,18 @@ CONTROL -> decodeClientRegister -> ClientRegisterHandler
 ACCOUNT_QUERY -> decodeAccountQuery -> AccountQueryHandler
 ```
 
-Unknown template IDs are rejected with a log event and do not mutate ORS state.
+未知 template ID 记录日志并拒绝，不修改 ORS 状态。
 
-- [ ] **Step 5: Run tests**
+- [ ] **步骤 5：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R ctp_aeron_transport --output-on-failure
 ```
 
-Expected: PASS with a fake publisher; no Aeron network required.
+预期：使用 fake publisher 通过，不需要 Aeron 网络。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add ctp/transport ctp/tests ctp/CMakeLists.txt
@@ -573,26 +574,26 @@ git commit -m "feat(ors): add aeron transport for contract 1.0.0"
 
 ---
 
-### Task 6: Add ClientRegister and restart-safe clientId allocation
+### 任务 6：增加 ClientRegister 和重启安全的 clientId
 
-**Files:**
-- Create: `ctp/control/ClientRegistry.h`
-- Create: `ctp/control/ClientRegistry.cpp`
-- Create: `ctp/control/OpenOrderGuard.h`
-- Create: `ctp/control/OpenOrderGuard.cpp`
-- Test: `ctp/tests/ClientRegistryTest.cpp`
-- Test: `ctp/tests/OpenOrderGuardTest.cpp`
-- Modify: `ctp/core/ORSServer.h`
-- Modify: `ctp/core/ORSServer.cpp`
+**文件：**
+- 新建：`ctp/control/ClientRegistry.h`
+- 新建：`ctp/control/ClientRegistry.cpp`
+- 新建：`ctp/control/OpenOrderGuard.h`
+- 新建：`ctp/control/OpenOrderGuard.cpp`
+- 测试：`ctp/tests/ClientRegistryTest.cpp`
+- 测试：`ctp/tests/OpenOrderGuardTest.cpp`
+- 修改：`ctp/core/ORSServer.h`
+- 修改：`ctp/core/ORSServer.cpp`
 
-**Interfaces:**
+**接口：**
 - `ClientRegisterResult ClientRegistry::registerClient(std::string_view instanceId);`
 - `void ClientRegistry::releaseIfFlat(uint32_t clientId, const OrderAccountMap& orders);`
 - `uint32_t clientIdFromOrderId(uint32_t orderId);`
 - `uint32_t makeOrderId(uint32_t clientId, uint32_t orderCount);`
 - `bool OpenOrderGuard::hasLiveOrders(const std::vector<CThostFtdcOrderField>& rows);`
 
-- [ ] **Step 1: Write failing registry tests**
+- [ ] **步骤 1：先写失败的注册表测试**
 
 ```cpp
 void allocatesSequentialClientIds();
@@ -603,9 +604,9 @@ void orderIdUsesCompanyFormula();
 void clientIdExtractionRejectsOutOfRange();
 ```
 
-`clientId` range is `1..4294`; `OrderID` is `uint32` and `ORDERID_RANGE` is `1_000_000`.
+`clientId` 范围是 `1..4294`；`OrderID` 是 `uint32`，`ORDERID_RANGE` 是 `1_000_000`。
 
-- [ ] **Step 2: Write failing restart guard tests**
+- [ ] **步骤 2：先写失败的重启保护测试**
 
 ```cpp
 void allTradedAndCanceledRowsAreTerminal();
@@ -613,61 +614,61 @@ void anyOpenOrderBlocksReady();
 void guardFailurePublishesSessionFailed();
 ```
 
-The guard query is `ReqQryOrder` after login, before accepting `ClientRegister`. Any non-terminal order means:
+保护查询是登录后的 `ReqQryOrder`，在允许 `ClientRegister` 之前执行。任何非终态订单意味着：
 
 ```text
 SessionEvent.state = FAILED
 reason = "open orders present; reconcile before client registration"
 ```
 
-No `clientId` is allocated and no order request is accepted.
+不分配 `clientId`，不接受订单请求。
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [ ] **步骤 3：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target 'ctp_client_registry_test|ctp_open_order_guard_test'
 ctest --test-dir build -R 'ctp_client_registry|ctp_open_order_guard' --output-on-failure
 ```
 
-Expected: FAIL because both classes do not exist.
+预期：失败，因为两个类不存在。
 
-- [ ] **Step 4: Implement ClientRegistry**
+- [ ] **步骤 4：实现 ClientRegistry**
 
-Allocate monotonically from 1. Do not derive `clientId` from `instanceId`; `instanceId` is diagnostic only. A reconnect receives a new `clientId`; the old `clientId` stays reserved until `releaseIfFlat` sees no order with that high bits.
+从 1 开始单调分配。不要从 `instanceId` 派生 `clientId`；`instanceId` 只用于诊断。重连分配新的 `clientId`；旧 `clientId` 一直保留，直到 `releaseIfFlat` 看到没有该高位段订单。
 
-`releaseIfFlat` scans `OrderAccountMap`; it must not release a `clientId` if any order with `orderId / 1_000_000 == clientId` remains.
+`releaseIfFlat` 扫描 `OrderAccountMap`；只要还有 `orderId / 1_000_000 == clientId` 的订单，就不能释放。
 
-- [ ] **Step 5: Implement OpenOrderGuard**
+- [ ] **步骤 5：实现 OpenOrderGuard**
 
-`hasLiveOrders` reads CTP `OrderStatus` and returns true for any status other than:
+`hasLiveOrders` 读取 CTP `OrderStatus`，除以下状态外都算未终态：
 
 ```text
 THOST_FTDC_OST_AllTraded
 THOST_FTDC_OST_Canceled
 ```
 
-A query failure also blocks READY. Do not use `position.csv`, `contract_*`, or SHM to infer open orders.
+查询失败也阻止 READY。不要用 `position.csv`、`contract_*` 或 SHM 推断未完成订单。
 
-- [ ] **Step 6: Wire ClientRegister and the order gate**
+- [ ] **步骤 6：接入 ClientRegister 和订单门禁**
 
-`ORSServer::RegisterClient` calls `ClientRegistry::registerClient` and sends `ClientRegisterResult` through `transport_.sendClientRegisterResponse`.
+`ORSServer::RegisterClient` 调用 `ClientRegistry::registerClient`，并通过 `transport_.sendClientRegisterResponse` 发送 `ClientRegisterResult`。
 
-Before a successful registration, `ProcessRequest` for `NEWORDER`, `MODIFYORDER`, or `CANCELORDER` responds with an explicit error and never reaches CTP. The test is:
+注册成功前，`ProcessRequest` 对 `NEWORDER`、`MODIFYORDER`、`CANCELORDER` 返回明确错误，不能进入 CTP。测试：
 
 ```cpp
 void orderBeforeClientRegisterIsRejected();
 ```
 
-- [ ] **Step 7: Verify**
+- [ ] **步骤 7：验证**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R 'ctp_client_registry|ctp_open_order_guard' --output-on-failure
 ```
 
-Expected: PASS.
+预期：通过。
 
-- [ ] **Step 8: Commit**
+- [ ] **步骤 8：提交**
 
 ```bash
 git add ctp/control ctp/tests ctp/core ctp/CMakeLists.txt
@@ -676,25 +677,25 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 
 ---
 
-### Task 7: Add account query and query cadence
+### 任务 7：增加 account query 和查询节流
 
-**Files:**
-- Create: `ctp/query/QueryMapping.h`
-- Create: `ctp/query/QueryMapping.cpp`
-- Create: `ctp/query/AccountQueryService.h`
-- Create: `ctp/query/AccountQueryService.cpp`
-- Create: `ctp/query/QueryCadence.h`
-- Test: `ctp/tests/AccountQueryTest.cpp`
-- Test: `ctp/tests/QueryCadenceTest.cpp`
-- Modify: `ctp/core/ORSServer.cpp`
+**文件：**
+- 新建：`ctp/query/QueryMapping.h`
+- 新建：`ctp/query/QueryMapping.cpp`
+- 新建：`ctp/query/AccountQueryService.h`
+- 新建：`ctp/query/AccountQueryService.cpp`
+- 新建：`ctp/query/QueryCadence.h`
+- 测试：`ctp/tests/AccountQueryTest.cpp`
+- 测试：`ctp/tests/QueryCadenceTest.cpp`
+- 修改：`ctp/core/ORSServer.cpp`
 
-**Interfaces:**
+**接口：**
 - `AccountSnapshot mapAccountSnapshot(const CThostFtdcTradingAccountField&, uint64_t requestId, const OrsConfig&);`
 - `bool AccountQueryService::query(uint64_t requestId, std::chrono::steady_clock::time_point now);`
 - `bool AccountQueryService::acceptResponse(int ctpRequestId, const CThostFtdcTradingAccountField* row, const CThostFtdcRspInfoField* error);`
 - `bool QueryCadence::tryAcquire(std::chrono::steady_clock::time_point now);`
 
-- [ ] **Step 1: Write failing account tests**
+- [ ] **步骤 1：先写失败的 account 测试**
 
 ```cpp
 void successEmitsSnapshotWithRequestId();
@@ -704,46 +705,46 @@ void successDoesNotChangeReadyStateOrOrderMap();
 void nanAndDblMaxAreSanitized();
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target 'ctp_account_query_test|ctp_query_cadence_test'
 ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
 ```
 
-Expected: FAIL because the query service does not exist.
+预期：失败，因为 query service 不存在。
 
-- [ ] **Step 3: Implement mapping and cadence**
+- [ ] **步骤 3：实现映射和节流**
 
-Copy the field mapping from `ctp/src/CtpQueryService.cpp` into `ctp/query/QueryMapping.cpp`, but do not copy the v3 `CtpQueryService` service or its session state machine.
+把 `ctp/src/CtpQueryService.cpp` 的字段映射复制到 `ctp/query/QueryMapping.cpp`，但不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
 
-Account fields:
+账户字段：
 
 ```text
 Balance, Available, CurrMargin, FrozenMargin, Commission,
 CloseProfit, PositionProfit, Deposit, Withdraw
 ```
 
-`requestId` is the SDK query correlation key. `tradingDay` comes from the CTP row. Sanitize `DBL_MAX` and NaN to `0.0`.
+`requestId` 是 SDK 查询关联键；`tradingDay` 来自 CTP 行。`DBL_MAX` 和 NaN 映射为 `0.0`。
 
-Use a 1000 ms cadence. The second query inside the interval returns a rejected result, not a silently dropped request.
+节流为 1000 ms。间隔内第二次查询返回拒绝结果，不能静默丢弃。
 
-- [ ] **Step 4: Integrate CTP callbacks**
+- [ ] **步骤 4：接入 CTP 回调**
 
-`QueryAccount(AccountQueryRequest)` calls `ReqQryTradingAccount` only in READY. Store `requestIdByCtpRequestId`.
+`QueryAccount(AccountQueryRequest)` 只在 READY 时调用 `ReqQryTradingAccount`。保存 `requestIdByCtpRequestId`。
 
-`OnRspQryTradingAccount` maps a successful row to `AccountSnapshot` and calls `transport.sendAccount`. An error or empty result publishes an error snapshot. It must not call `PushUpdate`, change `m_ordLocalMap`, or change session READY.
+`OnRspQryTradingAccount` 成功行映射为 `AccountSnapshot` 并调用 `transport.sendAccount`；错误或空结果发布错误 snapshot。它不得调用 `PushUpdate`、修改 `m_ordLocalMap` 或改变 READY。
 
-- [ ] **Step 5: Run tests**
+- [ ] **步骤 5：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
 ```
 
-Expected: PASS.
+预期：通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add ctp/query ctp/tests ctp/core ctp/CMakeLists.txt
@@ -752,21 +753,21 @@ git commit -m "feat(ors): add throttled account query"
 
 ---
 
-### Task 8: Add order/RMS parity tests
+### 任务 8：增加订单/RMS 一致性测试
 
-**Files:**
-- Create: `ctp/core/OrderMapper.h`
-- Create: `ctp/core/OrderMapper.cpp`
-- Create: `ctp/tests/OrderParityTest.cpp`
-- Test fixtures: `ctp/tests/CompanyFixtures.h`
-- Modify: `ctp/core/ORSServer.cpp`
+**文件：**
+- 新建：`ctp/core/OrderMapper.h`
+- 新建：`ctp/core/OrderMapper.cpp`
+- 新建：`ctp/tests/OrderParityTest.cpp`
+- 测试样例：`ctp/tests/CompanyFixtures.h`
+- 修改：`ctp/core/ORSServer.cpp`
 
-**Interfaces:**
+**接口：**
 - `CThostFtdcInputOrderField mapNewOrder(const RequestMsg&, const OrderInfo&, const ContractPosition&);`
 - `CThostFtdcInputOrderActionField mapCancel(const RequestMsg&, const OrderInfo&);`
-- `void ORSServer::seedOrderForTest(const OrderInfo&);` compiled only under `ORS_V4_TESTING`.
+- `void ORSServer::seedOrderForTest(const OrderInfo&);`，只在 `ORS_TESTING` 下编译。
 
-- [ ] **Step 1: Write failing parity tests**
+- [ ] **步骤 1：先写失败的一致性测试**
 
 ```cpp
 void unknownCancelReturnsCancelOrderReject();
@@ -779,58 +780,58 @@ void rmsRejectDoesNotCallCtpAndKeepsOrderAbsent();
 void newOrderMapsSideOffsetAndPrice();
 ```
 
-The tests construct `ORSServer` with `InMemoryOrsTransport` and do not call `Start()`, so no CTP network is touched. Cancel-reject and trade callbacks are invoked directly with company-shaped rows.
+测试用 `InMemoryOrsTransport` 构造 `ORSServer`，不调用 `Start()`，所以不会连接 CTP。撤单拒绝和成交回调直接用公司形状的行调用。
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_order_parity_test
 ctest --test-dir build -R ctp_order_parity --output-on-failure
 ```
 
-Expected: FAIL because the test hook, mapper, or behavior is missing.
+预期：失败，因为测试钩子、mapper 或行为缺失。
 
-- [ ] **Step 3: Extract pure mapping helpers**
+- [ ] **步骤 3：抽取纯映射辅助函数**
 
-Move only the field construction out of `SendNewOrder`/`SendCancelOrder`:
+只从 `SendNewOrder`/`SendCancelOrder` 抽取字段构造：
 
 ```text
 RequestMsg + OrderInfo + ContractPosition -> CThostFtdcInputOrderField
 RequestMsg + OrderInfo                  -> CThostFtdcInputOrderActionField
 ```
 
-Do not move map mutation, RMS checks, `PushUpdate`, or CTP callbacks.
+不要移动 map 修改、RMS 检查、`PushUpdate` 或 CTP 回调。
 
-Preserve company behavior:
+保持公司行为：
 
 ```text
-BUY  against short today  -> CloseToday on SHFE, Close elsewhere
-BUY  against short yesterday -> Close
-SELL against long today   -> CloseToday on SHFE, Close elsewhere
-SELL against long yesterday -> Close
-otherwise                 -> Open
+BUY  平今空头 -> SHFE CloseToday，其他市场 Close
+BUY  平昨空头 -> Close
+SELL 平今多头 -> SHFE CloseToday，其他市场 Close
+SELL 平昨多头 -> Close
+其余          -> Open
 ```
 
-- [ ] **Step 4: Fix only the behavior the tests expose**
+- [ ] **步骤 4：只修复测试暴露的行为**
 
-Unknown cancel must call `RejectOrder` with `CANCEL_ORDER_REJECT` and the original `OrderID`; it must not insert a new order into `m_ordLocalMap`.
+未知撤单必须调用 `RejectOrder`，返回 `CANCEL_ORDER_REJECT` 和原 `OrderID`；不得向 `m_ordLocalMap` 插入新订单。
 
-Cancel reject must push `CANCEL_ORDER_REJECT` without erasing the existing order.
+撤单拒绝必须推送 `CANCEL_ORDER_REJECT`，不删除已有订单。
 
-Trade callback must not erase the order; only the company terminal path removes it.
+成交回调不得删除订单；只有公司终态路径才能移除。
 
-Stale `FrontID/SessionID`/`OrderRef` responses are discarded before map mutation.
+旧 `FrontID/SessionID`/`OrderRef` 的回报在修改 map 前丢弃。
 
-- [ ] **Step 5: Run tests**
+- [ ] **步骤 5：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R ctp_order_parity --output-on-failure
 ```
 
-Expected: PASS.
+预期：通过。
 
-- [ ] **Step 6: Commit**
+- [ ] **步骤 6：提交**
 
 ```bash
 git add ctp/core ctp/tests ctp/CMakeLists.txt
@@ -839,21 +840,21 @@ git commit -m "test(ors): pin company order and rms parity"
 
 ---
 
-### Task 9: Replace MDHandler SHM with transport sink
+### 任务 9：把 MDHandler 的 SHM 改为 transport sink
 
-**Files:**
-- Modify: `ctp/core/MDHandler.h`
-- Modify: `ctp/core/MDHandler.cpp`
-- Create: `ctp/md/MarketDataSink.h`
-- Test: `ctp/tests/MDHandlerTest.cpp`
-- Modify: `ctp/core/MdSpi.cpp`
+**文件：**
+- 修改：`ctp/core/MDHandler.h`
+- 修改：`ctp/core/MDHandler.cpp`
+- 新建：`ctp/md/MarketDataSink.h`
+- 测试：`ctp/tests/MDHandlerTest.cpp`
+- 修改：`ctp/core/MdSpi.cpp`
 
-**Interfaces:**
+**接口：**
 - `class MarketDataSink { virtual bool send(const illuminati::md::MarketUpdateNew&) = 0; };`
 - `MDHandler(MarketDataSink&);`
 - `void MDHandler::ProcessMDUpdate(char*);`
 
-- [ ] **Step 1: Write failing MD tests**
+- [ ] **步骤 1：先写失败的 MD 测试**
 
 ```cpp
 void preservesTwentyBidAndAskLevels();
@@ -864,20 +865,20 @@ void reconnectResubscribesAllSymbols();
 void firstTickAfterReconnectDoesNotReuseOldLevels();
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **步骤 2：运行测试，确认失败**
 
 ```bash
 cmake --build build -j4 --target ctp_md_handler_test
 ctest --test-dir build -R ctp_md_handler --output-on-failure
 ```
 
-Expected: FAIL because `MDHandler` still requires SHM and no sink exists.
+预期：失败，因为 `MDHandler` 仍依赖 SHM 且没有 sink。
 
-- [ ] **Step 3: Replace SHM writer**
+- [ ] **步骤 3：替换 SHM writer**
 
-Remove `mdshmwriter.h`, `MD_SHMKEY`, `MD_SHMSIZE`, and `MarketDataShmWriter`.
+删除 `mdshmwriter.h`、`MD_SHMKEY`、`MD_SHMSIZE`、`MarketDataShmWriter`。
 
-`ProcessMDUpdate` does:
+`ProcessMDUpdate` 执行：
 
 ```text
 update->m_timestamp = nowNanos()
@@ -885,26 +886,26 @@ update->m_seqnum = ++m_seqNum
 sink.send(*update)
 ```
 
-`MdSpi` passes the transport-backed sink. Do not change the 20-level `MarketUpdateNew` layout.
+`MdSpi` 传入 transport 支持的 sink。不要改变 20 档 `MarketUpdateNew` 布局。
 
-On MD reconnect:
+MD 重连时：
 
 ```text
-re-subscribe every symbol in m_symbolMap
-reset bid/ask levels to empty before the first tick after reconnect
-do not publish old ticks from the previous session
+重新订阅 m_symbolMap 中的所有 symbol
+重连后第一个 tick 前清空买卖档
+不发布上一会话的旧 tick
 ```
 
-- [ ] **Step 4: Run tests**
+- [ ] **步骤 4：运行测试**
 
 ```bash
 cmake --build build -j4
 ctest --test-dir build -R ctp_md_handler --output-on-failure
 ```
 
-Expected: PASS.
+预期：通过。
 
-- [ ] **Step 5: Commit**
+- [ ] **步骤 5：提交**
 
 ```bash
 git add ctp/core ctp/md ctp/tests ctp/CMakeLists.txt
@@ -913,13 +914,13 @@ git commit -m "feat(ors): publish market data through transport sink"
 
 ---
 
-### Task 10: Full verification and live gate
+### 任务 10：全量验证和 live gate
 
-**Files:**
-- Modify: `docs/live-gate-YYYYMMDD.md`
-- Modify: `ctp/configs/` if the test config changes
+**文件：**
+- 修改：`docs/live-gate-YYYYMMDD.md`
+- 修改：`ctp/configs/`，如果测试配置变化
 
-- [ ] **Step 1: Run the full build and tests**
+- [ ] **步骤 1：全量构建和测试**
 
 ```bash
 cmake -S . -B build
@@ -927,11 +928,11 @@ cmake --build build -j4
 ctest --test-dir build --output-on-failure
 ```
 
-Expected: all tests pass. The v3 active sources were already deleted in Task 1; there is no parallel tree.
+预期：全部通过。旧 active 源码已在任务 1 删除，不存在并行目录。
 
-- [ ] **Step 2: Run the live SimNow lifecycle test**
+- [ ] **步骤 2：运行 SimNow live 生命周期测试**
 
-Only during a trading session, with a valid SimNow account:
+只在交易时段，使用有效 SimNow 账户：
 
 ```text
 login -> instrument query -> position query -> READY
@@ -944,9 +945,9 @@ account query -> AccountSnapshot
 MD -> MarketUpdate
 ```
 
-Do not run live order tests outside trading hours. Record the exact config and result in `docs/live-gate-YYYYMMDD.md`.
+非交易时段不得运行真实下单测试。把配置和结果记录到 `docs/live-gate-YYYYMMDD.md`。
 
-- [ ] **Step 3: Commit**
+- [ ] **步骤 3：提交**
 
 ```bash
 git add docs ctp
@@ -955,27 +956,28 @@ git commit -m "test(ors): record live gate"
 
 ---
 
-## Plan Decisions
+## 计划决定
 
-- **ClientId restart safety:** ORS uses `ReqQryOrder` after login; if any order is not `AllTraded`/`Canceled`, it does not enter READY and does not allocate clientIds. This costs one startup query but prevents reusing OrderID segments while CTP still has live orders.
-- **No SHM compatibility layer:** `OrsTransport` is a new seam; do not keep `ShmMgr` behind an adapter.
-- **No file fallback:** position/instrument state comes only from CTP queries. A failed query is a failed startup, not a reason to read an old CSV.
-- **Contract codegen is external:** ORS consumes generated headers from the contract repository; it does not own or duplicate the SBE schema.
-- **Account query only:** position/instrument query changes are initialization semantics, not a new order state machine.
+- **ClientId 重启安全：** 登录后执行 `ReqQryOrder`；只要存在非 `AllTraded`/`Canceled` 订单，就不进入 READY、不分配 clientId。代价是多一次启动查询，但能防止 CTP 仍有存活订单时复用 OrderID 段。
+- **不做 SHM 兼容层：** `OrsTransport` 是新 seam；不要把 `ShmMgr` 藏在适配器后面。
+- **不做文件回退：** 持仓/合约状态只来自 CTP 查询；查询失败就是启动失败，不能读旧 CSV。
+- **Contract 代码生成在外部：** ORS 只使用 contract 仓库生成的头文件，不复制或重写 SBE schema。
+- **只新增 account query：** position/instrument 查询是初始化语义，不是新订单状态机。
+- **原地重写：** 所有新代码直接进入 `ctp/`，不建 `ctp/v4`，不保留 v3/v4 双轨。
 
-## Verification Matrix
+## 验证矩阵
 
-| Behavior | Test |
+| 行为 | 测试 |
 |---|---|
-| unknown/erased cancel | `ctp_order_parity` |
-| cancel reject keeps order | `ctp_order_parity` |
-| trade before terminal | `ctp_order_parity` |
-| stale front/session report | `ctp_order_parity` |
-| RMS reject no CTP call | `ctp_order_parity` |
-| empty position query clears table | `ctp_position_table` |
-| query failure blocks READY | `ctp_position_table`, `ctp_open_order_guard` |
-| account query error does not change READY | `ctp_account_query` |
-| Aeron back-pressure is reported | `ctp_aeron_transport` |
-| clientId never reused while live | `ctp_client_registry` |
-| MD 20 levels and sequence | `ctp_md_handler` |
-| JSONL fields and redaction | `ctp_log_facade` |
+| 未知/已删除订单撤单 | `ctp_order_parity` |
+| 撤单拒绝保留订单 | `ctp_order_parity` |
+| 成交先于终态 | `ctp_order_parity` |
+| 旧 front/session 回报 | `ctp_order_parity` |
+| RMS 拒绝不调用 CTP | `ctp_order_parity` |
+| 空持仓查询清空表 | `ctp_position_table` |
+| 查询失败阻止 READY | `ctp_position_table`、`ctp_open_order_guard` |
+| account query 错误不改变 READY | `ctp_account_query` |
+| Aeron back-pressure 上报 | `ctp_aeron_transport` |
+| clientId 存活期间不复用 | `ctp_client_registry` |
+| MD 20 档和 sequence | `ctp_md_handler` |
+| JSONL 字段和脱敏 | `ctp_log_facade` |
