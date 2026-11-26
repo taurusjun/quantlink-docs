@@ -6,6 +6,7 @@
 - ORS v4 实施方案：`003-ors-v4.md`
 - Java ORS SDK：`004-ors-sdk.md`
 - ORS 代码整理：`005-ors-code-cleanup.md`
+- ORS 实施计划：`plans/2026-11-26-ors-implementation.md`
 - ORS 基线比较：`ref/001-ors-baseline-comparison.md`
 - 历史：`../v3/` 保留，不再作为实现基线
 
