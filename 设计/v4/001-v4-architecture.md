@@ -14,8 +14,8 @@
 
 ```text
 1. ORS 完全复刻公司 ORS 的业务行为。
-   唯一业务改动：account query。
-   订单 map、RMS、撤单、终态、回报时序、账户/持仓查询均以公司 ORS 为准。
+   业务改动：account query；去掉 POSITION_FILE / CONTRACT_FILE 状态读写，改为 CTP 查询初始化。
+   订单 map、RMS、撤单、终态、回报时序均以公司 ORS 为准。
 
 2. ORS 的传输从公司 SHM 改为 Aeron。
    Aeron 只替换传输，不重新定义订单语义。
@@ -37,8 +37,9 @@
 原则：
 
 ```text
-可以改传输、部署和账户查询接入方式；
+可以改传输、部署和查询接入方式；
 不能重新发明订单状态机；
+不能用 position.csv / contract 文件初始化或持久化交易状态；
 不能让 SDK 或 TradeBot 再维护一份通道订单权威。
 ```
 
@@ -125,13 +126,14 @@ L2 不再存在。
 - 终态订单清理
 - RMS、撤单计数、账户级可平/预扣语义
 - 账户查询和持仓查询
+- 登录后基于 CTP 查询初始化 contract/position；不读写 position.csv / contract 文件
 - 旧 front/session 过滤
 
 ### 4.3 唯一业务改动
 
-account query 的接入方式和响应映射可以调整；**订单、撤单、RMS、持仓和终态逻辑不改**。
+account query 的接入方式和响应映射可以调整；同时移除公司 ORS 的 POSITION_FILE / CONTRACT_FILE 状态读写，改为 CTP 查询初始化。
 
-账户查询的字段、响应消息和 Aeron 映射在实现计划中单独列清楚，不能借 account query 改动顺手改订单状态。
+**订单、撤单、RMS 和终态逻辑不改；position/instrument 的业务语义仍按 CTP 查询结果。**
 
 ### 4.4 源码基线
 

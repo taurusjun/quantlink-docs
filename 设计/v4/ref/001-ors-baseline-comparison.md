@@ -102,6 +102,7 @@ Aeron 传输层
 
 ```text
 主基线：公司 ORS 原始代码（`fromCompany/gitrepo/ors/China`）
+状态初始化：改 CTP 查询，不沿用 position.csv / contract 文件读写
 修复来源：quantlink-trading/ors/China（逐项 cherry-pick）
 传输参考：当前 quantlink-ors 的 Aeron 实现
 ```

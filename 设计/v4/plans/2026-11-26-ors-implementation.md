@@ -16,7 +16,7 @@
 
 ```text
 公司 ORS 是订单/RMS/账户/持仓业务基线
-account query 是唯一业务改动
+account query + 去掉 POSITION_FILE / CONTRACT_FILE 状态读写，改为 CTP 查询
 不保留 SHM 请求/响应
 不沿用 v3 CtpAdapter 的 OrderStatus/CancelState 状态机
 不保留 v3/v4 双实现
@@ -102,13 +102,27 @@ Keep `orderresponse.h`, `marketupdateNew.h`, RMS implementation/checks, time/con
 
 Add a CMake target for ORS core with CTP Trader/Md libraries.
 
-- [ ] **Step 4: Verify baseline**
+- [ ] **Step 4: Replace file-backed initialization**
+
+Remove:
+- `POSITION_FILE` read/write
+- `CONTRACT_FILE` write
+- `updatePositionFromFile()`
+- `writePositionToFile()`
+- `fpContractFile` persistence
+
+Use CTP queries from `quantlink-trading/ors/China` as reference, but do not copy its file-write calls:
+- `ReqQryInstrument`
+- `ReqQryInvestorPosition`
+- `ReqQryTradingAccount`
+
+- [ ] **Step 5: Verify baseline**
 
 ```bash
 cmake --build build -j4 --target ors_core
 ```
 
-Expected: company ORS core compiles, with SHM symbols unresolved or stubbed only where transport will replace them.
+Expected: company ORS core compiles without file-backed state, with SHM symbols unresolved or stubbed only where transport will replace them.
 
 ---
 
@@ -236,10 +250,12 @@ Test:
 - error response emits error fields
 - second query inside interval is rejected/throttled
 - query failure does not change session READY or order state
+- startup instrument/position query is the only source of contract/position state
+- no position.csv / contract file is read or written
 
 - [ ] **Step 2: Implement**
 
-Enable CTP account query, add throttle, map fields to `AccountSnapshot`, publish on account stream.
+Enable CTP account query, add throttle, map fields to `AccountSnapshot`, publish on account stream. Ensure instrument/position initialization is query-based and has no file fallback.
 
 - [ ] **Step 3: GREEN**
 
