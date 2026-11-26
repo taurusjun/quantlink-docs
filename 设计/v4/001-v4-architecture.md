@@ -243,7 +243,8 @@ SDK 不替 TradeBot 决定订单状态。
 
 ### 6.4 部署形态
 
-默认作为 TradeBot 进程内的库使用。  
+默认作为消费方进程内的库使用。  
+FastTrade 使用 Java 实现，见 `004-ors-sdk.md`；SDK 独立工程，不放进 contract 或 ORS。
 如果后续需要独立进程，SDK 进程也只能做传输和关联，不能演化成第二个 L2。
 
 ---
