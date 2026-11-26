@@ -1,6 +1,6 @@
 # ORS v4 代码整理任务：日志与 illuminati 依赖
 
-- 状态：DRAFT（已并入实施计划 `plans/2026-11-26-ors-implementation.md` Task 2B，待执行）
+- 状态：DRAFT（已并入实施计划 `plans/2026-11-26-ors-implementation.md` Task 3，待执行）
 - 范围：ORS v4 核心代码整理；v3 实现不再清理，只作为历史
 - 关联：
   - `003-ors-v4.md`
