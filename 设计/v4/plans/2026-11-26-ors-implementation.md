@@ -546,6 +546,7 @@ void sessionUsesSessionStream();
 void backPressureIsReportedAndRetried();
 void controlFrameRoutesToClientRegisterHandler();
 void requestFrameRoutesToProcessRequest();
+void accountQueryOnRequestStreamRoutesToQueryAccount();
 ```
 
 - [ ] **步骤 2：运行测试，确认失败**
@@ -574,9 +575,10 @@ REQUEST=1, RESPONSE=2, ACCOUNT=3, MARKET_DATA=4, SESSION=5, CONTROL=6
 `poll()` 每次解码一个 frame：
 
 ```text
-REQUEST -> decodeRequest -> RequestHandler
+REQUEST -> 按 templateId 分流：
+  OrsRequest      -> decodeRequest -> RequestHandler
+  AccountQuery    -> decodeAccountQuery -> AccountQueryHandler
 CONTROL -> decodeClientRegister -> ClientRegisterHandler
-ACCOUNT_QUERY -> decodeAccountQuery -> AccountQueryHandler
 ```
 
 未知 template ID 记录日志并拒绝，不修改 ORS 状态。

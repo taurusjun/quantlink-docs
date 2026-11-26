@@ -273,6 +273,8 @@ stream 6: CONTROL      SDK -> ORS / ORS -> SDK
 - SBE header 带 schemaId/templateId/version
 - `OrderID` 是 request/response 关联键
 - `requestId` 是 account query 关联键
+- `AccountQuery` 走 REQUEST stream（SDK -> ORS）；`AccountSnapshot` 走 ACCOUNT stream（ORS -> SDK）
+- 没有单独的 `AccountQueryResponse` contract 消息
 - `ClientRegisterResponse.clientId` 是 OrderID 的高位编号来源
 - 不在 ORS/SDK 之间重新引入 `orderRef` 和 v3 `sourcePublicationEpoch` 语义
 - 断线重连、sequence、epoch 如果需要，放在 Aeron/SDK envelope，不塞进公司 `RequestMsg/ResponseMsg` 字段
