@@ -265,7 +265,7 @@ CTP SDK / Aeron
 
 ## 7. 依赖整理步骤
 
-1. 建 `v4/core`、`v4/rms`、`v4/transport`、`v4/log`
+1. 建 `ctp/core`、`ctp/rms`、`ctp/transport`、`ctp/log`
 2. 用 `ors_base` 替换配置/日志/文本工具
 3. 用 std 替换锁/时间/文件系统
 4. 删除 SHM 依赖，接 transport 接口

@@ -1,4 +1,4 @@
-# ORS v4 Implementation Plan
+# ORS Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -28,7 +28,7 @@ CTP only: 编译时固定 _USE_CTP_，不导入 Sgit 分支、Sgit 头文件或 
 不重写公司 ORS 的订单、撤单、RMS、终态逻辑
 account query 是唯一新增业务接口；position/instrument 只改成查询初始化
 OrderID 保持 clientId * 1_000_000 + orderCount
-contract 固定 1.0.0；不引入 v3/v4 双 contract
+contract 固定 1.0.0；不引入旧 contract
 纳入 003 §3.1 的生产修复：4040 模式、MD/Trader flow 目录拆分、登录重试/退避、MD 重订阅、MD 档位清零、查询限流
 ```
 
@@ -46,23 +46,24 @@ contract 固定 1.0.0；不引入 v3/v4 双 contract
 ### Task 1: Import CTP-only company ORS core
 
 **Files:**
-- Create: `ctp/v4/core/ORSServer.h`
-- Create: `ctp/v4/core/ORSServer.cpp`
-- Create: `ctp/v4/core/MdSpi.h`
-- Create: `ctp/v4/core/MdSpi.cpp`
-- Create: `ctp/v4/core/MDHandler.h`
-- Create: `ctp/v4/core/MDHandler.cpp`
-- Create: `ctp/v4/core/main.cpp`
-- Create: `ctp/v4/core/OrsTypes.h`
-- Create: `ctp/v4/core/OrsConfig.h`
-- Create: `ctp/v4/core/OrsConfig.cpp`
-- Create: `ctp/v4/transport/OrsTransport.h`
-- Create: `ctp/v4/transport/InMemoryOrsTransport.h`
-- Create: `ctp/v4/transport/InMemoryOrsTransport.cpp`
-- Create: `ctp/v4/vendor/hftbase/` for the minimum transitive headers
-- Create: `ctp/v4/CMakeLists.txt`
+- Create: `ctp/core/ORSServer.h`
+- Create: `ctp/core/ORSServer.cpp`
+- Create: `ctp/core/MdSpi.h`
+- Create: `ctp/core/MdSpi.cpp`
+- Create: `ctp/core/MDHandler.h`
+- Create: `ctp/core/MDHandler.cpp`
+- Create: `ctp/core/main.cpp`
+- Create: `ctp/core/OrsTypes.h`
+- Create: `ctp/core/OrsConfig.h`
+- Create: `ctp/core/OrsConfig.cpp`
+- Create: `ctp/transport/OrsTransport.h`
+- Create: `ctp/transport/InMemoryOrsTransport.h`
+- Create: `ctp/transport/InMemoryOrsTransport.cpp`
+- Create: `ctp/vendor/hftbase/` for the minimum transitive headers
 - Modify: `ctp/CMakeLists.txt`
-- Test: `ctp/v4/tests/CoreLinkTest.cpp`
+- Delete: `ctp/include/ors/ctp/`, `ctp/src/Aeron*.cpp`, `ctp/src/Contract*.cpp`, `ctp/src/Ctp*.cpp`, `ctp/src/InboundValidation.cpp`, `ctp/src/MarketDataFreshness.cpp`, `ctp/src/OfferRetry.cpp`, `ctp/src/QueryCadence.cpp`, `ctp/src/RuntimeConfig.cpp`, `ctp/src/SessionRecovery.cpp`, `ctp/src/Smoke*.cpp`, `ctp/src/TextEncoding.cpp`, `ctp/src/main.cpp`, `ctp/tests/`
+- Keep: `ctp/include/ors/base/`, `ctp/src/base/`, `third_party/inih/`
+- Test: `ctp/tests/CoreLinkTest.cpp`
 
 **Interfaces:**
 - `struct OrsConfig { std::string brokerId, investorId, password, authCode, appId, tradeFront, mdFront, flowDir, logPath, accountId, venueId, orsId; int requestStream, responseStream, accountStream, marketDataStream, sessionStream, controlStream; };`
@@ -96,13 +97,13 @@ contract 固定 1.0.0；不引入 v3/v4 双 contract
 - [ ] **Step 1: Write the failing link test**
 
 ```cpp
-// ctp/v4/tests/CoreLinkTest.cpp
-#include "v4/core/ORSServer.h"
-#include "v4/transport/InMemoryOrsTransport.h"
+// ctp/tests/CoreLinkTest.cpp
+#include "core/ORSServer.h"
+#include "transport/InMemoryOrsTransport.h"
 
 int main() {
-  static_assert(sizeof(ors::v4::ORSServer) > 0);
-  ors::v4::InMemoryOrsTransport transport;
+  static_assert(sizeof(ors::ORSServer) > 0);
+  ors::InMemoryOrsTransport transport;
   return transport.responseCount() == 0 ? 0 : 1;
 }
 ```
@@ -112,11 +113,11 @@ int main() {
 Run:
 
 ```bash
-cmake -S . -B build-v4
-cmake --build build-v4 -j4 --target ctp_v4_core_link_test
+cmake -S . -B build
+cmake --build build -j4 --target ctp_core_link_test
 ```
 
-Expected: FAIL because `ctp/v4/core/ORSServer.h` and `ctp/v4/transport/InMemoryOrsTransport.h` do not exist.
+Expected: FAIL because `ctp/core/ORSServer.h` and `ctp/transport/InMemoryOrsTransport.h` do not exist.
 
 - [ ] **Step 3: Import the CTP-only company files**
 
@@ -133,7 +134,28 @@ include/MDHandler.h
 
 Do not import `SgitFtdc*`, `TraderSpi.*`, `reuters*`, `dumprecorder.*`, `marketdatahandler.*`, or `tradedatahandler.*`.
 
-Change every `#ifdef _USE_CTP_` to keep only the CTP branch. Remove the Sgit overloads and Sgit fields from `ORSServer.h/cpp` and `MdSpi.h/cpp`. Set `_USE_CTP_` in `ctp/v4/CMakeLists.txt`.
+Change every `#ifdef _USE_CTP_` to keep only the CTP branch. Remove the Sgit overloads and Sgit fields from `ORSServer.h/cpp` and `MdSpi.h/cpp`. Set `_USE_CTP_` in `ctp/CMakeLists.txt`.
+
+Delete the v3 active implementation in the same task; do not keep a parallel tree:
+
+```text
+ctp/include/ors/ctp/
+ctp/src/Aeron*.cpp
+ctp/src/Contract*.cpp
+ctp/src/Ctp*.cpp
+ctp/src/InboundValidation.cpp
+ctp/src/MarketDataFreshness.cpp
+ctp/src/OfferRetry.cpp
+ctp/src/QueryCadence.cpp
+ctp/src/RuntimeConfig.cpp
+ctp/src/SessionRecovery.cpp
+ctp/src/Smoke*.cpp
+ctp/src/TextEncoding.cpp
+ctp/src/main.cpp
+ctp/tests/
+```
+
+Keep `ctp/include/ors/base/`, `ctp/src/base/`, and `third_party/inih/`; the new core uses them.
 
 - [ ] **Step 4: Add OrsConfig and transport seam**
 
@@ -179,24 +201,24 @@ startReqRespLogger()
 
 `PushUpdate`, `RmsError`, and `RmsWarning` call `transport_.sendResponse(...)`; keep the existing RMS/position updates after that call. `Start()` does not call `startMonitorAsyncORSRequest()`.
 
-`MDHandler` still includes `mdshmwriter.h` at this stage. Add a temporary `ctp/v4/vendor/hftbase/mdshmwriter.h` no-op writer that discards writes and does not create SHM. Task 9 removes it.
+`MDHandler` still includes `mdshmwriter.h` at this stage. Add a temporary `ctp/vendor/hftbase/mdshmwriter.h` no-op writer that discards writes and does not create SHM. Task 9 removes it.
 
 `ORSServer::Stop` does not write position files and does not shut down SHM.
 
 - [ ] **Step 6: Build and run the link test**
 
 ```bash
-cmake -S . -B build-v4
-cmake --build build-v4 -j4 --target ctp_v4_core_link_test
-ctest --test-dir build-v4 -R ctp_v4_core_link --output-on-failure
+cmake -S . -B build
+cmake --build build -j4 --target ctp_core_link_test
+ctest --test-dir build -R ctp_core_link --output-on-failure
 ```
 
-Expected: PASS. The old v3 targets may still build; do not remove them yet.
+Expected: PASS. The v3 active sources are removed by this task; git history is the only copy.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add ctp/v4 ctp/CMakeLists.txt
+git add ctp ctp/CMakeLists.txt
 git commit -m "feat(ors): import ctp-only company core with transport seam"
 ```
 
@@ -205,11 +227,11 @@ git commit -m "feat(ors): import ctp-only company core with transport seam"
 ### Task 2: Remove state files and initialize positions from CTP
 
 **Files:**
-- Create: `ctp/v4/core/PositionTable.h`
-- Create: `ctp/v4/core/PositionTable.cpp`
-- Modify: `ctp/v4/core/ORSServer.cpp`
-- Modify: `ctp/v4/core/ORSServer.h`
-- Test: `ctp/v4/tests/PositionTableTest.cpp`
+- Create: `ctp/core/PositionTable.h`
+- Create: `ctp/core/PositionTable.cpp`
+- Modify: `ctp/core/ORSServer.cpp`
+- Modify: `ctp/core/ORSServer.h`
+- Test: `ctp/tests/PositionTableTest.cpp`
 
 **Interfaces:**
 - `struct ContractPosition { int onLongPos; int todayLongPos; int onShortPos; int todayShortPos; };`
@@ -235,8 +257,8 @@ The test constructs rows directly; it never opens `position.csv` or `contract_*.
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_position_table_test
-ctest --test-dir build-v4 -R ctp_v4_position_table --output-on-failure
+cmake --build build -j4 --target ctp_position_table_test
+ctest --test-dir build -R ctp_position_table --output-on-failure
 ```
 
 Expected: FAIL because `PositionTable` does not exist.
@@ -302,7 +324,7 @@ OnRspQryInvestorPositionDetail file comparison branch
 - [ ] **Step 5: Verify no file-backed state**
 
 ```bash
-rg 'POSITION_FILE|CONTRACT_FILE|position\.csv|contract_' ctp/v4
+rg 'POSITION_FILE|CONTRACT_FILE|position\.csv|contract_' ctp
 ```
 
 Expected: no production matches; only test names or this plan may mention them.
@@ -310,8 +332,8 @@ Expected: no production matches; only test names or this plan may mention them.
 - [ ] **Step 6: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R 'ctp_v4_position_table|ctp_v4_core_link' --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R 'ctp_position_table|ctp_core_link' --output-on-failure
 ```
 
 Expected: PASS.
@@ -319,7 +341,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add ctp/v4
+git add ctp
 git commit -m "feat(ors): replace position and contract files with ctp queries"
 ```
 
@@ -328,18 +350,18 @@ git commit -m "feat(ors): replace position and contract files with ctp queries"
 ### Task 3: Replace base libraries and unify logging
 
 **Files:**
-- Create: `ctp/v4/log/Log.h`
-- Create: `ctp/v4/log/Log.cpp`
-- Create: `ctp/v4/tests/LogFacadeTest.cpp`
-- Modify: `ctp/v4/core/ORSServer.cpp`
-- Modify: `ctp/v4/core/MdSpi.cpp`
-- Modify: `ctp/v4/core/MDHandler.cpp`
-- Modify: `ctp/v4/vendor/hftbase/`
-- Modify: `ctp/v4/CMakeLists.txt`
+- Create: `ctp/log/Log.h`
+- Create: `ctp/log/Log.cpp`
+- Create: `ctp/tests/LogFacadeTest.cpp`
+- Modify: `ctp/core/ORSServer.cpp`
+- Modify: `ctp/core/MdSpi.cpp`
+- Modify: `ctp/core/MDHandler.cpp`
+- Modify: `ctp/vendor/hftbase/`
+- Modify: `ctp/CMakeLists.txt`
 
 **Interfaces:**
-- `void ors::v4::log::info(std::string_view event, std::initializer_list<LogField> fields);`
-- `void ors::v4::log::warn(...)`, `error(...)`, `metrics(const Metrics&)`.
+- `void ors::log::info(std::string_view event, std::initializer_list<LogField> fields);`
+- `void ors::log::warn(...)`, `error(...)`, `metrics(const Metrics&)`.
 
 - [ ] **Step 1: Write failing log tests**
 
@@ -353,8 +375,8 @@ void metricsAreAggregatedNotPerTick();
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_log_facade_test
-ctest --test-dir build-v4 -R ctp_v4_log_facade --output-on-failure
+cmake --build build -j4 --target ctp_log_facade_test
+ctest --test-dir build -R ctp_log_facade --output-on-failure
 ```
 
 Expected: FAIL because the facade does not exist.
@@ -368,7 +390,7 @@ Configfile          -> ors::base::ConfigFile
 CasLock             -> std::mutex / std::atomic
 ITime_ClockRT       -> std::chrono
 StatsCollector      -> counters + 60s metrics event
-ILOG                -> ors::v4::log facade
+ILOG                -> ors::log facade
 ProcessSettings     -> std::filesystem / config
 ```
 
@@ -379,9 +401,9 @@ Remove production `std::cerr`/`std::cout`; keep them only for `--help`, `--versi
 - [ ] **Step 4: Verify**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R ctp_v4_log_facade --output-on-failure
-rg 'ILOG|StatsCollector|std::cerr' ctp/v4/core ctp/v4/transport ctp/v4/query
+cmake --build build -j4
+ctest --test-dir build -R ctp_log_facade --output-on-failure
+rg 'ILOG|StatsCollector|std::cerr' ctp/core ctp/transport ctp/query
 ```
 
 Expected: PASS; no production matches for the forbidden loggers.
@@ -389,7 +411,7 @@ Expected: PASS; no production matches for the forbidden loggers.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add ctp/v4
+git add ctp
 git commit -m "refactor(ors): replace illuminati infrastructure and unify logs"
 ```
 
@@ -398,10 +420,10 @@ git commit -m "refactor(ors): replace illuminati infrastructure and unify logs"
 ### Task 4: Add contract 1.0.0 codec mapping
 
 **Files:**
-- Create: `ctp/v4/contract/OrsCodec.h`
-- Create: `ctp/v4/contract/OrsCodec.cpp`
-- Create: `ctp/v4/contract/OrsCodecTest.cpp`
-- Modify: `ctp/v4/CMakeLists.txt`
+- Create: `ctp/contract/OrsCodec.h`
+- Create: `ctp/contract/OrsCodec.cpp`
+- Create: `ctp/contract/OrsCodecTest.cpp`
+- Modify: `ctp/CMakeLists.txt`
 
 **Interfaces:**
 - `illuminati::infra::RequestMsg decodeRequest(const com::quantlink::contract::sbe::OrsRequestDecoder&);`
@@ -429,8 +451,8 @@ Use one real company `RequestMsg` fixture and one `ResponseMsg` fixture. Assert 
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_ors_codec_test
-ctest --test-dir build-v4 -R ctp_v4_ors_codec --output-on-failure
+cmake --build build -j4 --target ctp_ors_codec_test
+ctest --test-dir build -R ctp_ors_codec --output-on-failure
 ```
 
 Expected: FAIL because `OrsCodec` and generated headers are not available.
@@ -453,8 +475,8 @@ Fixed-width strings use the existing `ors::base::fitContractField` or an explici
 - [ ] **Step 4: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R ctp_v4_ors_codec --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R ctp_ors_codec --output-on-failure
 ```
 
 Expected: PASS. Also run the contract repository's Java round-trip tests before changing field widths.
@@ -462,7 +484,7 @@ Expected: PASS. Also run the contract repository's Java round-trip tests before 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add ctp/v4/contract ctp/v4/CMakeLists.txt
+git add ctp/contract ctp/CMakeLists.txt
 git commit -m "feat(ors): map contract 1.0.0 frames to company messages"
 ```
 
@@ -471,11 +493,11 @@ git commit -m "feat(ors): map contract 1.0.0 frames to company messages"
 ### Task 5: Implement Aeron transport
 
 **Files:**
-- Create: `ctp/v4/transport/AeronOrsTransport.h`
-- Create: `ctp/v4/transport/AeronOrsTransport.cpp`
-- Create: `ctp/v4/transport/FakeFramePublisher.h`
-- Test: `ctp/v4/tests/AeronOrsTransportTest.cpp`
-- Modify: `ctp/v4/CMakeLists.txt`
+- Create: `ctp/transport/AeronOrsTransport.h`
+- Create: `ctp/transport/AeronOrsTransport.cpp`
+- Create: `ctp/transport/FakeFramePublisher.h`
+- Test: `ctp/tests/AeronOrsTransportTest.cpp`
+- Modify: `ctp/CMakeLists.txt`
 
 **Interfaces:**
 - `AeronOrsTransport(OrsConfig, FramePublisher&, FrameSubscriber&);`
@@ -503,8 +525,8 @@ void requestFrameRoutesToProcessRequest();
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_aeron_transport_test
-ctest --test-dir build-v4 -R ctp_v4_aeron_transport --output-on-failure
+cmake --build build -j4 --target ctp_aeron_transport_test
+ctest --test-dir build -R ctp_aeron_transport --output-on-failure
 ```
 
 Expected: FAIL because `AeronOrsTransport` does not exist.
@@ -536,8 +558,8 @@ Unknown template IDs are rejected with a log event and do not mutate ORS state.
 - [ ] **Step 5: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R ctp_v4_aeron_transport --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R ctp_aeron_transport --output-on-failure
 ```
 
 Expected: PASS with a fake publisher; no Aeron network required.
@@ -545,7 +567,7 @@ Expected: PASS with a fake publisher; no Aeron network required.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add ctp/v4/transport ctp/v4/tests ctp/v4/CMakeLists.txt
+git add ctp/transport ctp/tests ctp/CMakeLists.txt
 git commit -m "feat(ors): add aeron transport for contract 1.0.0"
 ```
 
@@ -554,14 +576,14 @@ git commit -m "feat(ors): add aeron transport for contract 1.0.0"
 ### Task 6: Add ClientRegister and restart-safe clientId allocation
 
 **Files:**
-- Create: `ctp/v4/control/ClientRegistry.h`
-- Create: `ctp/v4/control/ClientRegistry.cpp`
-- Create: `ctp/v4/control/OpenOrderGuard.h`
-- Create: `ctp/v4/control/OpenOrderGuard.cpp`
-- Test: `ctp/v4/tests/ClientRegistryTest.cpp`
-- Test: `ctp/v4/tests/OpenOrderGuardTest.cpp`
-- Modify: `ctp/v4/core/ORSServer.h`
-- Modify: `ctp/v4/core/ORSServer.cpp`
+- Create: `ctp/control/ClientRegistry.h`
+- Create: `ctp/control/ClientRegistry.cpp`
+- Create: `ctp/control/OpenOrderGuard.h`
+- Create: `ctp/control/OpenOrderGuard.cpp`
+- Test: `ctp/tests/ClientRegistryTest.cpp`
+- Test: `ctp/tests/OpenOrderGuardTest.cpp`
+- Modify: `ctp/core/ORSServer.h`
+- Modify: `ctp/core/ORSServer.cpp`
 
 **Interfaces:**
 - `ClientRegisterResult ClientRegistry::registerClient(std::string_view instanceId);`
@@ -603,8 +625,8 @@ No `clientId` is allocated and no order request is accepted.
 - [ ] **Step 3: Run tests to verify they fail**
 
 ```bash
-cmake --build build-v4 -j4 --target 'ctp_v4_client_registry_test|ctp_v4_open_order_guard_test'
-ctest --test-dir build-v4 -R 'ctp_v4_client_registry|ctp_v4_open_order_guard' --output-on-failure
+cmake --build build -j4 --target 'ctp_client_registry_test|ctp_open_order_guard_test'
+ctest --test-dir build -R 'ctp_client_registry|ctp_open_order_guard' --output-on-failure
 ```
 
 Expected: FAIL because both classes do not exist.
@@ -639,8 +661,8 @@ void orderBeforeClientRegisterIsRejected();
 - [ ] **Step 7: Verify**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R 'ctp_v4_client_registry|ctp_v4_open_order_guard' --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R 'ctp_client_registry|ctp_open_order_guard' --output-on-failure
 ```
 
 Expected: PASS.
@@ -648,7 +670,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add ctp/v4/control ctp/v4/tests ctp/v4/core ctp/v4/CMakeLists.txt
+git add ctp/control ctp/tests ctp/core ctp/CMakeLists.txt
 git commit -m "feat(ors): allocate client ids with restart safety"
 ```
 
@@ -657,14 +679,14 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 ### Task 7: Add account query and query cadence
 
 **Files:**
-- Create: `ctp/v4/query/QueryMapping.h`
-- Create: `ctp/v4/query/QueryMapping.cpp`
-- Create: `ctp/v4/query/AccountQueryService.h`
-- Create: `ctp/v4/query/AccountQueryService.cpp`
-- Create: `ctp/v4/query/QueryCadence.h`
-- Test: `ctp/v4/tests/AccountQueryTest.cpp`
-- Test: `ctp/v4/tests/QueryCadenceTest.cpp`
-- Modify: `ctp/v4/core/ORSServer.cpp`
+- Create: `ctp/query/QueryMapping.h`
+- Create: `ctp/query/QueryMapping.cpp`
+- Create: `ctp/query/AccountQueryService.h`
+- Create: `ctp/query/AccountQueryService.cpp`
+- Create: `ctp/query/QueryCadence.h`
+- Test: `ctp/tests/AccountQueryTest.cpp`
+- Test: `ctp/tests/QueryCadenceTest.cpp`
+- Modify: `ctp/core/ORSServer.cpp`
 
 **Interfaces:**
 - `AccountSnapshot mapAccountSnapshot(const CThostFtdcTradingAccountField&, uint64_t requestId, const OrsConfig&);`
@@ -685,15 +707,15 @@ void nanAndDblMaxAreSanitized();
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cmake --build build-v4 -j4 --target 'ctp_v4_account_query_test|ctp_v4_query_cadence_test'
-ctest --test-dir build-v4 -R 'ctp_v4_account_query|ctp_v4_query_cadence' --output-on-failure
+cmake --build build -j4 --target 'ctp_account_query_test|ctp_query_cadence_test'
+ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
 ```
 
 Expected: FAIL because the query service does not exist.
 
 - [ ] **Step 3: Implement mapping and cadence**
 
-Copy the field mapping from `ctp/src/CtpQueryService.cpp` into `ctp/v4/query/QueryMapping.cpp`, but do not copy the v3 `CtpQueryService` service or its session state machine.
+Copy the field mapping from `ctp/src/CtpQueryService.cpp` into `ctp/query/QueryMapping.cpp`, but do not copy the v3 `CtpQueryService` service or its session state machine.
 
 Account fields:
 
@@ -715,8 +737,8 @@ Use a 1000 ms cadence. The second query inside the interval returns a rejected r
 - [ ] **Step 5: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R 'ctp_v4_account_query|ctp_v4_query_cadence' --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-failure
 ```
 
 Expected: PASS.
@@ -724,7 +746,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add ctp/v4/query ctp/v4/tests ctp/v4/core ctp/v4/CMakeLists.txt
+git add ctp/query ctp/tests ctp/core ctp/CMakeLists.txt
 git commit -m "feat(ors): add throttled account query"
 ```
 
@@ -733,11 +755,11 @@ git commit -m "feat(ors): add throttled account query"
 ### Task 8: Add order/RMS parity tests
 
 **Files:**
-- Create: `ctp/v4/core/OrderMapper.h`
-- Create: `ctp/v4/core/OrderMapper.cpp`
-- Create: `ctp/v4/tests/OrderParityTest.cpp`
-- Test fixtures: `ctp/v4/tests/CompanyFixtures.h`
-- Modify: `ctp/v4/core/ORSServer.cpp`
+- Create: `ctp/core/OrderMapper.h`
+- Create: `ctp/core/OrderMapper.cpp`
+- Create: `ctp/tests/OrderParityTest.cpp`
+- Test fixtures: `ctp/tests/CompanyFixtures.h`
+- Modify: `ctp/core/ORSServer.cpp`
 
 **Interfaces:**
 - `CThostFtdcInputOrderField mapNewOrder(const RequestMsg&, const OrderInfo&, const ContractPosition&);`
@@ -762,8 +784,8 @@ The tests construct `ORSServer` with `InMemoryOrsTransport` and do not call `Sta
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_order_parity_test
-ctest --test-dir build-v4 -R ctp_v4_order_parity --output-on-failure
+cmake --build build -j4 --target ctp_order_parity_test
+ctest --test-dir build -R ctp_order_parity --output-on-failure
 ```
 
 Expected: FAIL because the test hook, mapper, or behavior is missing.
@@ -802,8 +824,8 @@ Stale `FrontID/SessionID`/`OrderRef` responses are discarded before map mutation
 - [ ] **Step 5: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R ctp_v4_order_parity --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R ctp_order_parity --output-on-failure
 ```
 
 Expected: PASS.
@@ -811,7 +833,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add ctp/v4/core ctp/v4/tests ctp/v4/CMakeLists.txt
+git add ctp/core ctp/tests ctp/CMakeLists.txt
 git commit -m "test(ors): pin company order and rms parity"
 ```
 
@@ -820,11 +842,11 @@ git commit -m "test(ors): pin company order and rms parity"
 ### Task 9: Replace MDHandler SHM with transport sink
 
 **Files:**
-- Modify: `ctp/v4/core/MDHandler.h`
-- Modify: `ctp/v4/core/MDHandler.cpp`
-- Create: `ctp/v4/md/MarketDataSink.h`
-- Test: `ctp/v4/tests/MDHandlerTest.cpp`
-- Modify: `ctp/v4/core/MdSpi.cpp`
+- Modify: `ctp/core/MDHandler.h`
+- Modify: `ctp/core/MDHandler.cpp`
+- Create: `ctp/md/MarketDataSink.h`
+- Test: `ctp/tests/MDHandlerTest.cpp`
+- Modify: `ctp/core/MdSpi.cpp`
 
 **Interfaces:**
 - `class MarketDataSink { virtual bool send(const illuminati::md::MarketUpdateNew&) = 0; };`
@@ -845,8 +867,8 @@ void firstTickAfterReconnectDoesNotReuseOldLevels();
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cmake --build build-v4 -j4 --target ctp_v4_md_handler_test
-ctest --test-dir build-v4 -R ctp_v4_md_handler --output-on-failure
+cmake --build build -j4 --target ctp_md_handler_test
+ctest --test-dir build -R ctp_md_handler --output-on-failure
 ```
 
 Expected: FAIL because `MDHandler` still requires SHM and no sink exists.
@@ -876,8 +898,8 @@ do not publish old ticks from the previous session
 - [ ] **Step 4: Run tests**
 
 ```bash
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 -R ctp_v4_md_handler --output-on-failure
+cmake --build build -j4
+ctest --test-dir build -R ctp_md_handler --output-on-failure
 ```
 
 Expected: PASS.
@@ -885,37 +907,29 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add ctp/v4/core ctp/v4/md ctp/v4/tests ctp/v4/CMakeLists.txt
+git add ctp/core ctp/md ctp/tests ctp/CMakeLists.txt
 git commit -m "feat(ors): publish market data through transport sink"
 ```
 
 ---
 
-### Task 10: Cut over and run the live gate
+### Task 10: Full verification and live gate
 
 **Files:**
-- Modify: `ctp/CMakeLists.txt`
-- Modify: `CMakeLists.txt`
-- Remove: active v3 `ctp/src`, `ctp/include`, `ctp/tests`
-- Keep: `docs/v3` as history only
+- Modify: `docs/live-gate-YYYYMMDD.md`
+- Modify: `ctp/configs/` if the test config changes
 
-- [ ] **Step 1: Remove the v3 active build**
-
-Remove the old `ors_ctp`, `ors_ctp_core`, `ors_aeron`, and v3 tests from the root build. The v4 binary becomes `ors_ctp`.
-
-Do not keep v3/v4 dual active targets.
-
-- [ ] **Step 2: Run the full build and tests**
+- [ ] **Step 1: Run the full build and tests**
 
 ```bash
-cmake -S . -B build-v4
-cmake --build build-v4 -j4
-ctest --test-dir build-v4 --output-on-failure
+cmake -S . -B build
+cmake --build build -j4
+ctest --test-dir build --output-on-failure
 ```
 
-Expected: all tests pass.
+Expected: all tests pass. The v3 active sources were already deleted in Task 1; there is no parallel tree.
 
-- [ ] **Step 3: Run the live SimNow lifecycle test**
+- [ ] **Step 2: Run the live SimNow lifecycle test**
 
 Only during a trading session, with a valid SimNow account:
 
@@ -930,13 +944,13 @@ account query -> AccountSnapshot
 MD -> MarketUpdate
 ```
 
-Do not run live order tests outside trading hours. Record the exact config and result in `docs/v4/live-gate-YYYYMMDD.md`.
+Do not run live order tests outside trading hours. Record the exact config and result in `docs/live-gate-YYYYMMDD.md`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add -A
-git commit -m "feat(ors): cut over to ctp company core"
+git add docs ctp
+git commit -m "test(ors): record live gate"
 ```
 
 ---
@@ -953,15 +967,15 @@ git commit -m "feat(ors): cut over to ctp company core"
 
 | Behavior | Test |
 |---|---|
-| unknown/erased cancel | `ctp_v4_order_parity` |
-| cancel reject keeps order | `ctp_v4_order_parity` |
-| trade before terminal | `ctp_v4_order_parity` |
-| stale front/session report | `ctp_v4_order_parity` |
-| RMS reject no CTP call | `ctp_v4_order_parity` |
-| empty position query clears table | `ctp_v4_position_table` |
-| query failure blocks READY | `ctp_v4_position_table`, `ctp_v4_open_order_guard` |
-| account query error does not change READY | `ctp_v4_account_query` |
-| Aeron back-pressure is reported | `ctp_v4_aeron_transport` |
-| clientId never reused while live | `ctp_v4_client_registry` |
-| MD 20 levels and sequence | `ctp_v4_md_handler` |
-| JSONL fields and redaction | `ctp_v4_log_facade` |
+| unknown/erased cancel | `ctp_order_parity` |
+| cancel reject keeps order | `ctp_order_parity` |
+| trade before terminal | `ctp_order_parity` |
+| stale front/session report | `ctp_order_parity` |
+| RMS reject no CTP call | `ctp_order_parity` |
+| empty position query clears table | `ctp_position_table` |
+| query failure blocks READY | `ctp_position_table`, `ctp_open_order_guard` |
+| account query error does not change READY | `ctp_account_query` |
+| Aeron back-pressure is reported | `ctp_aeron_transport` |
+| clientId never reused while live | `ctp_client_registry` |
+| MD 20 levels and sequence | `ctp_md_handler` |
+| JSONL fields and redaction | `ctp_log_facade` |
