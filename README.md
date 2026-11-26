@@ -3,7 +3,7 @@
 quantlink 工作区文档的集中副本，按 **调查** 与 **设计** 两大类组织。
 
 - 快照日期：2026-11-26
-- 性质：归档副本，不是原仓库文档的唯一真源
+- 性质：v1/v2/v3 与调查文档是集中副本；`设计/v4/` 是本仓维护的当前设计
 - 原仓库：各自 `docs/`、`quantlink-trading-architecture/`、`146/` 均保持不变
 
 ## 目录
@@ -31,6 +31,7 @@ quantlink-docs/
     ├── v3/
     │   ├── ors/
     │   └── fasttrade/
+    ├── v4/                             当前设计（本仓维护）
     ├── 当前/
     │   ├── venue-contract/
     │   ├── simvenue/
@@ -64,6 +65,7 @@ quantlink-docs/
 | `设计/v1/fasttrade/` | `quantlink-fasttrade/docs/v1/` |
 | `设计/v2/fasttrade/` | `quantlink-fasttrade/docs/v2/` |
 | `设计/v3/fasttrade/` | `quantlink-fasttrade/docs/v3/` |
+| `设计/v4/` | 本仓维护，不复制自其他仓库 |
 | `设计/v1/fasttrade/superpowers/` | `quantlink-fasttrade/docs/superpowers/` |
 | `设计/当前/venue-contract/` | `quantlink-venue-contract/docs/` |
 | `设计/当前/simvenue/` | `quantlink-simvenue/docs/` |
@@ -78,8 +80,8 @@ quantlink-docs/
 
 ## 使用规则
 
-1. 修改设计或调查内容时，先改原仓库文档；本仓只做集中快照。
-2. 需要更新本仓时，按上表重新复制，不手工编辑副本。
+1. v1/v2/v3 和调查文档修改时，先改原仓库文档；本仓只做集中快照。
+2. `设计/v4/` 例外：直接在 `quantlink-docs` 修改，作为当前设计真源。
 3. 跨版本相对链接在集中目录下可能失效；阅读时以原仓库路径为准。
 4. `146` 使用工作区内的 `quantlink-new/146`，不是 `/Volumes/DevDisk/146` 历史代码盘。
 5. `.git`、`.DS_Store`、`node_modules` 和构建产物不进入本仓。
