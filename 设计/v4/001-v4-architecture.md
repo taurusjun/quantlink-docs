@@ -14,7 +14,7 @@
 
 ```text
 1. ORS 完全复刻公司 ORS 的业务行为。
-   业务改动：account query；去掉 POSITION_FILE / CONTRACT_FILE 状态读写，改为 CTP 查询初始化。
+   业务改动：account query；去掉 POSITION_FILE / CONTRACT_FILE 状态读写，改为 CTP 查询初始化。配置文件读取保留。
    订单 map、RMS、撤单、终态、回报时序均以公司 ORS 为准。
 
 2. ORS 的传输从公司 SHM 改为 Aeron。

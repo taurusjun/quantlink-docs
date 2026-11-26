@@ -50,7 +50,7 @@ quantlink-trading ORS 分支
 - `StrategyID` 回填
 - 拆单尝试及部分回退
 
-这些修复有价值，但它**不是“只改 account query”的公司 ORS**：
+这些修复有价值，但它**不是 v4 需要的公司 ORS 基线**：
 
 ```text
 StrategyID / Dashboard 字段
@@ -59,7 +59,7 @@ StrategyID / Dashboard 字段
 其他生产补丁
 ```
 
-如果 v4 以“完全复刻公司 ORS、只改 account query”为原则，则：
+如果 v4 以“公司 ORS 行为 + CTP 查询初始化”为原则，则：
 
 - 业务基线用公司 ORS 原始代码
 - 从 quantlink-trading 只挑经过验证、且不改变订单语义的修复
@@ -118,7 +118,8 @@ Aeron 传输层
 第一版 v4 ORS 的验收标准应该是：
 
 - 公司 ORS 的订单/撤单/RMS 行为逐项对齐
-- account query 是唯一业务差异
+- account query 和状态查询初始化是唯一业务差异
+- position.csv / contract 文件读写不进入 v4
 - SHM 被 Aeron 替换，但消息语义不变
 - 未知撤单返回明确的 `CANCEL_ORDER_REJECT`
 - 订单状态仍由 ORS 持有，SDK/TradeBot 不另建订单权威
