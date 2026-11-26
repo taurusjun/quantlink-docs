@@ -235,11 +235,15 @@ git commit -m "feat(ors): import ctp-only company core with transport seam"
 
 **接口：**
 - `struct ContractPosition { int onLongPos; int todayLongPos; int onShortPos; int todayShortPos; };`
-- `class PositionTable`：
-  - `void replace(std::vector<PositionRow> rows);`
-  - `ContractPosition get(std::string_view symbol) const;`
-  - `bool empty() const;`
 - `struct PositionRow { std::string instrumentId; char direction; int position; int todayPosition; };`
+- `struct OffsetReservation { char offsetFlag; int qtyType; };`
+- `class PositionTable`：
+  - `void replaceFromQuery(std::vector<PositionRow> rows);`
+  - `ContractPosition get(std::string_view symbol) const;`
+  - `OffsetReservation reserveForOrder(std::string_view symbol, char side, int qty, char exchange);`
+  - `void restoreOnFailure(const OrderInfo&, const ResponseMsg&);`
+  - `void applyTrade(const OrderInfo&, const ResponseMsg&);`
+  - `bool empty() const;`
 - `void ORSServer::onInstrumentQueryComplete();`
 - `void ORSServer::onPositionQueryComplete();`
 
@@ -250,9 +254,16 @@ void replaceMergesLongAndShort();
 void emptyQueryClearsPreviousPositions();
 void queryFailureLeavesTableEmpty();
 void missingInstrumentReturnsZeroPosition();
+void reserveCloseTodayDeductsTodayQuantity();
+void reserveCloseYesterdayDeductsYesterdayQuantity();
+void reserveOpenLeavesPositionUnchanged();
+void orderErrorRestoresReservedQuantity();
+void cancelConfirmRestoresReservedQuantity();
+void openTradeAddsTodayQuantity();
+void closeTradeDoesNotDoubleCount();
 ```
 
-测试直接构造持仓行，不打开 `position.csv` 或 `contract_*.csv`。
+测试直接构造持仓行和公司形状的 `OrderInfo`/`ResponseMsg`，不打开 `position.csv` 或 `contract_*.csv`。
 
 - [ ] **步骤 2：运行测试，确认失败**
 
@@ -265,7 +276,7 @@ ctest --test-dir build -R ctp_position_table --output-on-failure
 
 - [ ] **步骤 3：实现 PositionTable**
 
-`replace()` 在锁外构造新的 `std::map<std::string, ContractPosition>`，再在 `std::mutex` 内交换。处理 CTP 多空行：
+`replaceFromQuery()` 在锁外构造新的 `std::map<std::string, ContractPosition>`，再在 `std::mutex` 内交换。处理 CTP 多空行：
 
 ```text
 Direction == THOST_FTDC_PD_Long:
@@ -281,6 +292,20 @@ Direction == THOST_FTDC_PD_Short:
 ```
 
 `Position == 0` 的行忽略。空查询结果必须清空整张表。
+
+`reserveForOrder()` 必须完全复刻公司 `SetCombOffsetFlag`：
+
+```text
+BUY  且 qty <= todayShort -> CloseToday（SHFE）或 Close（其他）；todayShort -= qty
+BUY  且 qty <= onShort    -> Close；onShort -= qty
+SELL 且 qty <= todayLong  -> CloseToday（SHFE）或 Close（其他）；todayLong -= qty
+SELL 且 qty <= onLong     -> Close；onLong -= qty
+否则                       -> Open，不扣减
+```
+
+`restoreOnFailure()` 对 `ORDER_ERROR` / `CANCEL_ORDER_CONFIRM` 的平仓预扣做反向加法；`OPEN` 不处理。
+
+`applyTrade()` 对 `OPEN` 增加 today 持仓；`CLOSE_TODAY` / `CLOSE_YESTERDAY` 不重复加，因为下单前已扣。
 
 - [ ] **步骤 4：接入 CTP 查询初始化**
 
@@ -309,7 +334,7 @@ position query 整表替换；空结果清空
 CTP 6.7.11 登录签名/构建兼容
 ```
 
-`SetCombOffsetFlag` 只读 `PositionTable`。删除：
+`SetCombOffsetFlag` 通过 `PositionTable::reserveForOrder` 读取并预扣；`PushUpdate` 通过 `restoreOnFailure` / `applyTrade` 更新。删除：
 
 ```text
 m_positionFile
@@ -987,6 +1012,7 @@ git commit -m "test(ors): record live gate"
 | 旧 front/session 回报 | `ctp_order_parity` |
 | RMS 拒绝不调用 CTP | `ctp_order_parity` |
 | 空持仓查询清空表 | `ctp_position_table` |
+| 平仓预扣/失败回滚/成交更新 | `ctp_position_table` |
 | 查询失败阻止 READY | `ctp_position_table`、`ctp_open_order_guard` |
 | account query 错误不改变 READY | `ctp_account_query` |
 | Aeron back-pressure 上报 | `ctp_aeron_transport` |
