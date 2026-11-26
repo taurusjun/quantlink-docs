@@ -695,6 +695,13 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 - `bool AccountQueryService::acceptResponse(int ctpRequestId, const CThostFtdcTradingAccountField* row, const CThostFtdcRspInfoField* error);`
 - `bool QueryCadence::tryAcquire(std::chrono::steady_clock::time_point now);`
 
+**查询代码来源：**
+- `AccountQuery` / `AccountSnapshot` 字段：contract 1.0.0，不使用旧 contract。
+- CTP 行到 snapshot 的字段映射：从当前 v3 的 `ctp/src/CtpQueryService.cpp` 提取 `mapAccountSnapshot`、`mapPositionSnapshot`、`mergePositions` 的映射逻辑；只取映射，不保留 `CtpQueryService` 的 service、阻塞查询和 session 状态机。任务 1 已删除该文件时，用 `git show b017507:ctp/src/CtpQueryService.cpp` 作为代码参考。
+- 查询触发、回调顺序、限流、重试：参考 `quantlink-trading/ors/China/src/ORSServer.cpp` 的 `ReqQryInstrument`、`ReqQryInvestorPosition`、`ReqQryTradingAccount` 和对应 `OnRsp...`；只取查询逻辑，不复制 `writePositionToFile` / `updatePositionFromFile`。
+- 公司 ORS `fromCompany/.../China` 的 `ReqQryPosition()` / `ReqQryAccount()` 是禁用或直接 `return`，持仓来自 `position.csv`，不能作为 query service 来源。
+- `AccountQueryService`、`QueryCadence`、请求/响应关联是 v4 新增接线代码，不是从公司 ORS 原样复制。
+
 - [ ] **步骤 1：先写失败的 account 测试**
 
 ```cpp
@@ -716,7 +723,7 @@ ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-fail
 
 - [ ] **步骤 3：实现映射和节流**
 
-把 `ctp/src/CtpQueryService.cpp` 的字段映射复制到 `ctp/query/QueryMapping.cpp`，但不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
+把 `git show b017507:ctp/src/CtpQueryService.cpp` 中的 `mapAccountSnapshot`、`mapPositionSnapshot`、`mergePositions` 字段映射复制到 `ctp/query/QueryMapping.cpp`；不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
 
 账户字段：
 
