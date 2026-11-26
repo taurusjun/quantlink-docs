@@ -1,0 +1,11 @@
+psql:tools/db/migrate-t060-venue-identity.sql:6: NOTICE:  column "position_channel" of relation "ors_instances" already exists, skipping
+ALTER TABLE
+psql:tools/db/migrate-t060-venue-identity.sql:8: NOTICE:  column "position_stream" of relation "ors_instances" already exists, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+UPDATE 0
+UPDATE 0
+UPDATE 0
+COMMENT
+COMMENT

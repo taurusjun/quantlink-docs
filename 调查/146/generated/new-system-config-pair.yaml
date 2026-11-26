@@ -1,0 +1,21 @@
+connections:
+  ors-china-shfe-01:
+    channel: aeron:ipc
+    streams:
+      marketData: 872
+      command: 3872
+      execution: 4872
+      state: 4873
+      session: 4875
+
+ors:
+  - id: ors-china-shfe-01
+    adapter: ctp
+    accounts:
+      - exchange: CHINA_SHFE
+        brokerId: "8699001"
+        investorId: "02332426"
+        secretRef: secret://ctp/8699001/02332426
+
+# skipped exchanges without complete ORS keys:
+#   CME

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SkylineFL Trading Front — 146 Qt HTML Repro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="appbar">
+    <div class="app-title">
+      <span class="app-mark">S</span>
+      <span>SkylineFL Trading Front</span>
+      <span class="demo-badge">146 QT REPRO</span>
+    </div>
+    <div class="app-status">
+      <span class="dot"></span>
+      <span>ZMQ 15213</span>
+      <span class="sep">|</span>
+      <span>DataService 127.0.0.1:20000</span>
+      <span class="sep">|</span>
+      <span class="muted">DEMO DATA</span>
+    </div>
+    <div class="window-launcher" id="windowLauncher">
+      <button data-window="strategy">Strategy</button>
+      <button data-window="fairvalue">FairValue</button>
+      <button data-window="position">Position</button>
+      <button data-window="openorder">OpenOrder</button>
+      <button data-window="fillresponse">Fills</button>
+      <button data-window="orderresponse">Order log</button>
+      <button data-window="console">Console</button>
+    </div>
+  </header>
+
+  <div class="desktop" id="desktop">
+    <section class="window" id="win-strategy" data-window="strategy" style="left:16px;top:58px;width:960px;height:300px;">
+      <header class="win-title">
+        <span class="win-name">Strategy</span>
+        <span class="win-meta" id="strategyWinMeta">3 strategies · ports 15300–15302</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <div class="win-toolbar">
+          <button id="connectAll">Connect All</button>
+          <button id="startAll">Start All</button>
+          <button id="stopAll">Stop All</button>
+          <button id="lockAll">Lock All</button>
+          <span class="toolbar-note">Scroll label values are editable inline; right-click a row for ContractWindow.</span>
+        </div>
+        <div class="table-wrap strategy-wrap">
+          <table id="strategyTable" class="qt-table strategy-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="window" id="win-fairvalue" data-window="fairvalue" style="left:16px;top:374px;width:640px;height:240px;">
+      <header class="win-title">
+        <span class="win-name">FairValue</span>
+        <span class="win-meta">FV / FVMA / group</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <div class="table-wrap">
+          <table id="fairTable" class="qt-table fair-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="window" id="win-position" data-window="position" style="left:668px;top:374px;width:750px;height:240px;">
+      <header class="win-title">
+        <span class="win-name">Position</span>
+        <span class="win-meta">Account / Net position / PNL</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <div class="table-wrap">
+          <table id="positionTable" class="qt-table position-table"></table>
+        </div>
+        <div class="status-line">Group / Mult / Fees editable · PNL recalculated like 146 PositionModel</div>
+      </div>
+    </section>
+
+    <section class="window" id="win-openorder" data-window="openorder" style="left:16px;top:620px;width:640px;height:230px;">
+      <header class="win-title">
+        <span class="win-name">OpenOrder</span>
+        <span class="win-meta" id="openOrderMeta">working orders</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <div class="win-toolbar">
+          <button id="cancelAll">Cancel All</button>
+          <span class="toolbar-note">Right-click an order to cancel; double-click to modify.</span>
+        </div>
+        <div class="table-wrap">
+          <table id="openOrderTable" class="qt-table order-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="window" id="win-fillresponse" data-window="fillresponse" style="left:668px;top:620px;width:750px;height:230px;">
+      <header class="win-title">
+        <span class="win-name">FillResponse</span>
+        <span class="win-meta">TRADE_CONFIRM · latest first</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <div class="win-toolbar">
+          <button id="exportFills">Export CSV</button>
+          <span class="toolbar-note">On close, 146 exports fills to CSV; this button performs the demo export.</span>
+        </div>
+        <div class="table-wrap">
+          <table id="fillTable" class="qt-table fill-table"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="window" id="win-orderresponse" data-window="orderresponse" style="left:990px;top:58px;width:430px;height:270px;">
+      <header class="win-title">
+        <span class="win-name">OrderResponse</span>
+        <span class="win-meta">non-trade order responses</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <pre id="orderResponse" class="text-log"></pre>
+      </div>
+    </section>
+
+    <section class="window" id="win-console" data-window="console" style="left:990px;top:344px;width:430px;height:270px;">
+      <header class="win-title">
+        <span class="win-name">Console</span>
+        <span class="win-meta">strategy console messages</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body">
+        <pre id="console" class="text-log"></pre>
+      </div>
+    </section>
+
+    <section class="window contract-window hidden" id="win-contract" data-window="contract" style="left:420px;top:120px;width:620px;height:640px;">
+      <header class="win-title">
+        <span class="win-name" id="contractTitle">ContractWindow · pair-01</span>
+        <span class="win-meta" id="contractMeta">BSE:BANKNIFTY</span>
+        <span class="win-buttons"><button class="win-min" data-min>—</button><button class="win-close" data-close>×</button></span>
+      </header>
+      <div class="win-body contract-body">
+        <div class="contract-toolbar">
+          <div class="contract-tabs" id="contractTabs">
+            <button class="active" data-channel="BSE">BSE</button>
+            <button data-channel="NSE_FO">NSE_FO</button>
+          </div>
+          <div class="contract-topline">
+            <span>LTP <b id="contractLtp">218.90</b></span>
+            <span>Time <b id="contractTime">10:42:19</b></span>
+            <span>Volume <b id="contractVolume">1,284,320</b></span>
+            <span>Size <input id="contractSize" value="2" inputmode="numeric"></span>
+          </div>
+        </div>
+        <div class="book-head"><span>Bid Qty</span><span>Bid</span><span>Ask</span><span>Ask Qty</span></div>
+        <div id="contractBook" class="contract-book"></div>
+        <div class="contract-footer">
+          <div class="contract-working">
+            <div class="subhead">Working orders</div>
+            <div id="contractWorking"></div>
+          </div>
+          <div class="contract-hint">Left-click bid/ask to open order ticket<br>Right-click to cancel the last working order</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="orderModal" aria-hidden="true">
+    <div class="modal">
+      <header class="modal-title"><span id="orderModalTitle">Place order</span><button data-modal-close>×</button></header>
+      <form id="orderForm">
+        <div class="modal-row side-row">
+          <button type="button" class="side-btn buy active" data-side="BUY">BUY</button>
+          <button type="button" class="side-btn sell" data-side="SELL">SELL</button>
+        </div>
+        <div class="modal-grid">
+          <label>Symbol<input id="orderSymbol" readonly></label>
+          <label>Quantity<input id="orderQty" value="2" inputmode="numeric"></label>
+          <label>Price<input id="orderPrice" value="218.90" inputmode="decimal"></label>
+          <label>Order type<select id="orderType"><option>LIMIT</option><option>MARKET</option></select></label>
+        </div>
+        <div class="modal-note">Demo order is routed through ManualOrderSender semantics; no live DataService.</div>
+        <footer class="modal-actions"><button type="button" class="secondary" data-modal-close>Cancel</button><button type="submit" class="primary" id="orderSubmit">Send</button></footer>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="cancelModal" aria-hidden="true">
+    <div class="modal small-modal">
+      <header class="modal-title"><span>Cancel All</span><button data-modal-close>×</button></header>
+      <div class="modal-body">
+        <p>146 uses a random confirmation code for Cancel All. Enter the code below.</p>
+        <div class="confirm-code" id="confirmCode">000</div>
+        <label class="code-input">Type code<input id="confirmInput" inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <footer class="modal-actions"><button type="button" class="secondary" data-modal-close>Cancel</button><button type="button" class="danger" id="confirmCancelAll">Cancel all orders</button></footer>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

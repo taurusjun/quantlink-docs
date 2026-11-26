@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trading Systems Monitor — 146 Qt4 HTML Repro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="desktop" id="desktop">
+    <div class="app-window" id="appWindow">
+      <div class="titlebar" id="titlebar">
+        <span class="titlebar-icon">TS</span>
+        <span class="titlebar-title">Trading Systems Monitor</span>
+        <span class="titlebar-controls">
+          <button type="button" class="win-btn" data-win="min" title="Minimize">—</button>
+          <button type="button" class="win-btn" data-win="max" title="Maximize">□</button>
+          <button type="button" class="win-btn win-btn-close" data-win="close" title="Close">×</button>
+        </span>
+      </div>
+
+      <nav class="menubar" id="menubar" aria-label="Main menu">
+        <div class="menu-wrap" data-menu="connection">
+          <button type="button" class="menu-label"><span class="mn">C</span>onnection</button>
+          <div class="menu-dropdown">
+            <button type="button" data-action="new-connection">New</button>
+            <button type="button" data-action="close-connection" disabled>Close</button>
+            <button type="button" data-action="load-connection">Load</button>
+            <button type="button" data-action="save-connection">Save</button>
+          </div>
+        </div>
+        <div class="menu-wrap" data-menu="action">
+          <button type="button" class="menu-label"><span class="mn">A</span>ction</button>
+          <div class="menu-dropdown">
+            <button type="button" data-action="square-off-all">Square Off All</button>
+            <button type="button" data-action="save-positions">Save Positions</button>
+          </div>
+        </div>
+        <div class="menu-wrap" data-menu="help">
+          <button type="button" class="menu-label"><span class="mn">H</span>elp</button>
+          <div class="menu-dropdown">
+            <button type="button" data-action="about">About</button>
+            <button type="button" data-action="about-qt">About Qt</button>
+          </div>
+        </div>
+        <span class="menubar-spacer"></span>
+        <span class="menubar-note">DataService 127.0.0.1:20000</span>
+      </nav>
+
+      <div class="exchange-tabs" id="exchangeTabs" role="tablist" aria-label="Exchanges">
+        <button type="button" class="exchange-tab is-active" data-exchange="NSE_FO" role="tab">NSE_FO</button>
+        <button type="button" class="exchange-tab" data-exchange="BSE" role="tab">BSE</button>
+        <button type="button" class="exchange-tab" data-exchange="CME" role="tab">CME</button>
+      </div>
+
+      <main class="workspace">
+        <div class="sub-tabs" id="subTabs" role="tablist" aria-label="Exchange views">
+          <button type="button" class="sub-tab" data-tab="orders" role="tab">Orders</button>
+          <button type="button" class="sub-tab is-active" data-tab="net" role="tab">Net Positions</button>
+          <button type="button" class="sub-tab" data-tab="market" role="tab">Market Data</button>
+        </div>
+
+        <section class="page" id="page-orders" data-page="orders" role="tabpanel" hidden>
+          <div class="page-toolbar">
+            <label for="orderSearch">Open Orders:</label>
+            <input id="orderSearch" class="qt-input" type="search" placeholder="Search..." autocomplete="off">
+            <span class="toolbar-spacer"></span>
+            <span class="toolbar-hint">Right-click an order to cancel or modify.</span>
+          </div>
+          <div class="table-frame orders-table-frame">
+            <table id="orderTable" class="qt-table order-table">
+              <colgroup id="orderCols"></colgroup>
+              <thead id="orderHead"></thead>
+              <tbody id="orderBody"></tbody>
+            </table>
+          </div>
+          <div class="orders-actions">
+            <button type="button" class="qt-button" data-action="cancel-all">Cancel All</button>
+            <button type="button" class="qt-button" data-action="cancel-modify">Cancel/Modify Order</button>
+            <button type="button" class="qt-button qt-button-primary" data-action="place-order">Place Order</button>
+          </div>
+        </section>
+
+        <section class="page" id="page-net" data-page="net" role="tabpanel">
+          <div class="table-frame net-table-frame">
+            <table id="positionTable" class="qt-table position-table">
+              <colgroup id="positionCols"></colgroup>
+              <thead id="positionHead"></thead>
+              <tbody id="positionBody"></tbody>
+            </table>
+          </div>
+          <div class="net-bottom">
+            <div class="totals-panel">
+              <table id="totalsTable" class="totals-table"></table>
+            </div>
+            <div class="net-controls">
+              <div class="net-search-row">
+                <input id="positionSearch" class="qt-input" type="search" placeholder="Search..." autocomplete="off">
+                <label class="qt-check"><input id="dynamicSort" type="checkbox"> Use Dynamic Sort</label>
+              </div>
+              <label class="qt-check"><input id="pnlInK" type="checkbox" checked> PnL in K?</label>
+              <div class="alert-line">
+                <span class="alert-icon">!</span>
+                <span id="netAlertText">All collectors connected</span>
+              </div>
+              <div class="toolbar-hint">Right-click a position for Square Off / View Market Data.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-market" data-page="market" role="tabpanel" hidden>
+          <div class="page-toolbar market-toolbar">
+            <label for="tickerInput">Ticker:</label>
+            <input id="tickerInput" class="qt-input ticker-input" type="text" placeholder="NIFTY15JUNFUT" autocomplete="off">
+            <select id="marketExchange" class="qt-select" aria-label="Market data exchange">
+              <option>NSE_FO</option>
+              <option>BSE</option>
+              <option>CME</option>
+            </select>
+            <span class="toolbar-hint">Press Enter to open a 20-level book.</span>
+          </div>
+          <div class="mdi-area" id="mdiArea"></div>
+        </section>
+      </main>
+
+      <footer class="statusbar">
+        <span class="status-item"><span class="status-dot" id="statusDot"></span><span id="statusConnection">DataService connected</span></span>
+        <span class="status-sep">|</span>
+        <span class="status-item" id="statusExchange">NSE_FO</span>
+        <span class="status-sep">|</span>
+        <span class="status-item" id="statusCount">10 positions · 8 orders</span>
+        <span class="status-spacer"></span>
+        <span class="status-item muted">146 Qt4 repro · mock data</span>
+        <span class="status-sep">|</span>
+        <span class="status-item" id="statusClock">--:--:--</span>
+        <span class="size-grip" aria-hidden="true"></span>
+      </footer>
+    </div>
+  </div>
+
+  <div class="context-menu" id="contextMenu" hidden></div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-titlebar">
+        <span id="modalTitle"></span>
+        <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

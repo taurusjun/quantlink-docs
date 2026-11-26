@@ -1,0 +1,11 @@
+SimNow real night-session manual order
+clientOrderId: 900000000035
+status: FILLED
+exchange_order_id: 118156
+filled_qty: 1
+venue: SIMNOW
+account: TEST-001
+instrument: au2612
+price: 840.02
+flow: control-plane -> Aeron 2100 -> CTP -> OnRtnOrder -> OrderUpdateV2 -> control-plane
+assertion: exchange_order_id is CTP OrderSysID, not instrumentId

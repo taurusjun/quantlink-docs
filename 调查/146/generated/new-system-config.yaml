@@ -1,0 +1,35 @@
+connections:
+  ors-bse-01:
+    channel: aeron:ipc
+    streams:
+      marketData: 12988
+      command: 44444
+      execution: 55555
+      state: 55556
+      session: 55558
+
+  ors-nse-fo-02:
+    channel: aeron:ipc
+    streams:
+      marketData: 1907
+      command: 555555
+      execution: 666666
+      state: 666667
+      session: 666669
+
+ors:
+  - id: ors-bse-01
+    adapter: ctp
+    accounts:
+      - exchange: BSE
+        brokerId: "8699001"
+        investorId: "02332426"
+        secretRef: secret://ctp/8699001/02332426
+
+  - id: ors-nse-fo-02
+    adapter: ctp
+    accounts:
+      - exchange: NSE_FO
+        brokerId: "8699001"
+        investorId: "02332426"
+        secretRef: secret://ctp/8699001/02332426

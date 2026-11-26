@@ -1,0 +1,33 @@
+2026-11-12 190 final verification
+
+services:
+  quantlink-fin-control: active
+  quantlink-fin-sim-venue: active
+  quantlink-fin-runtime-agent-simnow: active
+  quantlink-fin-runtime-agent-simvenue: active
+
+schema:
+  indicator tables: 18
+  indicator_operator: EMA/1 ACTIVE
+  position_channel/position_stream present on ors_instances
+  position streams: SIMNOW 2006, SIMSHENGLI 2013, SIMVENUE 0
+
+market data:
+  SIMNOW quote: 836.16 (Aeron)
+  SIMVENUE quote: 868.7249 (Aeron)
+  Invalid TEMPLATE_ID in control-plane since 22:42: 0
+
+CTP order:
+  clientOrderId 900000000035
+  status FILLED
+  exchange_order_id 118156 (real CTP OrderSysID)
+  filled_qty 1
+
+reconciliation snapshots:
+  TEST-001 ORDERS 2026-11-12T22:49:25+08
+  TEST-001 TRADES 2026-11-12T22:49:25+08
+
+log incident:
+  /var/log/quantlink-fin: 19M
+  PAIR-SIMVENUE log: ~4KB and stable
+  root cause: old runner V2 decode + unthrottled reconciliation stack trace

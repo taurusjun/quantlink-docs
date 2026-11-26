@@ -1,0 +1,5 @@
+messages=21 unique_ids=21
+v2 id=28 name=VenueSession
+v2 id=29 name=MarketDataV2
+MarketDataV2 field_ids=[1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 20, 21, 22, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39] unique=24
+VenueSession field_ids=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22] unique=17

@@ -1,0 +1,36 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.8.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as configuration cache cannot be reused because file 'backend/indicator-engine/build.gradle.kts' has changed.
+> Task :backend:shared:sbe:processTestResources NO-SOURCE
+> Task :backend:shared:sbe:processResources NO-SOURCE
+> Task :backend:shared:sbe:compileJava UP-TO-DATE
+> Task :backend:shared:sbe:classes UP-TO-DATE
+> Task :backend:shared:sbe:compileTestJava UP-TO-DATE
+> Task :backend:shared:sbe:testClasses UP-TO-DATE
+> Task :backend:shared:sbe:test FROM-CACHE
+
+[Incubating] Problems report is available at: file:///Users/wangjun/PG/quantlink-fin/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 4s
+3 actionable tasks: 1 from cache, 2 up-to-date
+Configuration cache entry stored.
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.8.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as configuration cache cannot be reused because file 'backend/indicator-engine/build.gradle.kts' has changed.
+> Task :backend:shared:sbe:processTestResources NO-SOURCE
+> Task :backend:shared:sbe:processResources NO-SOURCE
+> Task :backend:shared:sbe:compileJava UP-TO-DATE
+> Task :backend:shared:sbe:classes UP-TO-DATE
+> Task :backend:shared:sbe:compileTestJava UP-TO-DATE
+> Task :backend:shared:sbe:testClasses UP-TO-DATE
+> Task :backend:shared:sbe:test FROM-CACHE
+
+[Incubating] Problems report is available at: file:///Users/wangjun/PG/quantlink-fin/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 4s
+3 actionable tasks: 1 from cache, 2 up-to-date
+Configuration cache entry stored.
+C++ SBE codec OK
+Java -> C++ SBE interop OK
+SBE V2 codec OK
+SBE interop OK

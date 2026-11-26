@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeBot Workbench — GUI Visual</title>
+<style>
+  :root {
+    --bg: #080b11;
+    --bg-2: #0c111a;
+    --panel: #101722;
+    --panel-2: #131c29;
+    --panel-3: #172231;
+    --line: #203047;
+    --line-soft: #182638;
+    --text: #dce7f6;
+    --muted: #7f91aa;
+    --dim: #56677f;
+    --cyan: #57d6ff;
+    --green: #49e0a5;
+    --amber: #f3c969;
+    --red: #ff6f8b;
+    --violet: #b69cff;
+    --blue: #77a8ff;
+    --shadow: 0 12px 40px rgba(0, 0, 0, .28);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 460px at 18% -12%, rgba(35, 94, 143, .16), transparent 60%),
+      radial-gradient(700px 420px at 92% 0%, rgba(68, 42, 108, .13), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 12px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input { font: inherit; }
+  button { color: inherit; }
+  ::selection { background: rgba(87, 214, 255, .25); }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #223249; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2e4564; }
+
+  .app {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 58px 1fr;
+    overflow: hidden;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(9, 14, 22, .92);
+    z-index: 10;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+  .brand-mark {
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    border: 1px solid rgba(87, 214, 255, .45);
+    background: linear-gradient(145deg, rgba(87, 214, 255, .22), rgba(87, 214, 255, .04));
+    color: var(--cyan);
+    font: 700 11px var(--mono);
+    letter-spacing: -.5px;
+    border-radius: 6px;
+  }
+  .brand-title { font-size: 12px; font-weight: 650; letter-spacing: .2px; }
+  .brand-sub { color: var(--muted); font-size: 9px; letter-spacing: .13em; text-transform: uppercase; margin-top: 2px; }
+
+  .topmeta { display: flex; align-items: center; gap: 18px; color: var(--dim); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+  .topmeta b { color: var(--text); font: 600 11px var(--mono); letter-spacing: 0; text-transform: none; margin-left: 5px; }
+  .topmeta .ok { color: var(--green); }
+  .env {
+    color: var(--green);
+    border: 1px solid rgba(73, 224, 165, .3);
+    background: rgba(73, 224, 165, .07);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font: 700 9px var(--mono);
+    letter-spacing: .12em;
+  }
+
+  .top-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .search {
+    width: 270px;
+    height: 30px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    background: #0b121c;
+    border-radius: 5px;
+  }
+  .search input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 11px;
+  }
+  .search input::placeholder { color: #52647c; }
+  .search kbd {
+    font: 9px var(--mono);
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-bottom-color: #2b405c;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: #0f1824;
+  }
+  .icon-btn {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border: 1px solid var(--line);
+    background: #0b121c;
+    color: var(--muted);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: #315071; color: var(--text); }
+  .clock { color: var(--muted); font: 11px var(--mono); min-width: 74px; text-align: right; }
+
+  .main-shell { display: grid; grid-template-columns: 198px minmax(0, 1fr); min-height: 0; }
+
+  .rail {
+    border-right: 1px solid var(--line);
+    background: rgba(10, 15, 23, .72);
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .rail-label {
+    padding: 0 10px 8px;
+    color: var(--dim);
+    font-size: 9px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+
+  .nav { display: grid; gap: 3px; }
+  .nav button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 9px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    text-align: left;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .nav button:hover { background: rgba(34, 50, 70, .4); color: var(--text); }
+  .nav button.active {
+    background: linear-gradient(90deg, rgba(87, 214, 255, .12), rgba(87, 214, 255, .02));
+    border-color: rgba(87, 214, 255, .16);
+    color: var(--cyan);
+  }
+  .nav .glyph { width: 15px; text-align: center; font: 13px var(--mono); color: var(--dim); }
+  .nav button.active .glyph { color: var(--cyan); }
+  .nav .count {
+    margin-left: auto;
+    color: var(--dim);
+    font: 9px var(--mono);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: 9px;
+  }
+
+  .rail-spacer { flex: 1; }
+  .rail-card {
+    border: 1px solid var(--line-soft);
+    background: linear-gradient(160deg, rgba(23, 34, 49, .7), rgba(14, 22, 33, .55));
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  .rail-card .label { color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+  .rail-card .value { margin-top: 5px; color: var(--text); font: 600 11px var(--mono); }
+  .rail-card .sub { color: var(--muted); font-size: 10px; line-height: 1.5; margin-top: 5px; }
+  .stack-note { color: var(--dim); font-size: 9px; line-height: 1.55; padding: 8px 4px 0; border-top: 1px solid var(--line-soft); }
+  .stack-note b { color: var(--muted); font-weight: 500; }
+
+  .workspace {
+    min-width: 0;
+    overflow: auto;
+    padding: 18px 20px 28px;
+  }
+  .workspace-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 15px;
+  }
+  .eyebrow { color: var(--dim); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 5px; }
+  h1 { margin: 0; font-size: 20px; letter-spacing: -.3px; font-weight: 580; }
+  .head-sub { color: var(--muted); font-size: 11px; margin-top: 5px; }
+  .view-toggle {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--line);
+    background: #0b121c;
+    border-radius: 6px;
+  }
+  .view-toggle button {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: 600 9px var(--mono);
+    letter-spacing: .1em;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .view-toggle button.active { background: var(--panel-3); color: var(--cyan); }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .metric {
+    border: 1px solid var(--line-soft);
+    background: linear-gradient(150deg, rgba(18, 28, 42, .94), rgba(12, 19, 29, .94));
+    border-radius: 6px;
+    padding: 10px 12px;
+    min-width: 0;
+  }
+  .metric .label { color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .11em; white-space: nowrap; }
+  .metric .value { margin-top: 6px; font: 600 22px/1 var(--mono); letter-spacing: -.8px; white-space: nowrap; }
+  .metric .delta { color: var(--muted); font-size: 10px; margin-top: 5px; }
+  .metric .value.green { color: var(--green); }
+  .metric .value.cyan { color: var(--cyan); }
+  .metric .value.amber { color: var(--amber); }
+
+  .overview-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, .75fr); gap: 10px; margin-bottom: 10px; }
+  .lower-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .9fr) minmax(0, .9fr); gap: 10px; }
+
+  .panel {
+    min-width: 0;
+    border: 1px solid var(--line-soft);
+    background: linear-gradient(160deg, rgba(16, 23, 34, .98), rgba(12, 18, 28, .98));
+    border-radius: 7px;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .02) inset;
+  }
+  .panel-head {
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .panel-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+  .panel-title .sq { width: 5px; height: 5px; border-radius: 1px; background: var(--cyan); box-shadow: 0 0 8px rgba(87, 214, 255, .8); }
+  .panel-meta { color: var(--dim); font: 9px var(--mono); white-space: nowrap; }
+  .panel-body { padding: 10px 12px; }
+  .panel-body.flush { padding: 0; }
+
+  .strategy-table-wrap { overflow: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    color: var(--dim);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    font-weight: 500;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+    background: rgba(14, 22, 33, .6);
+  }
+  td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(24, 38, 56, .55);
+    white-space: nowrap;
+    font-size: 11px;
+  }
+  tr.strategy-row { cursor: pointer; }
+  tr.strategy-row:hover td { background: rgba(30, 48, 69, .32); }
+  tr.strategy-row.selected td { background: linear-gradient(90deg, rgba(87, 214, 255, .09), rgba(87, 214, 255, .01)); }
+  tr.strategy-row.selected td:first-child { box-shadow: inset 2px 0 0 var(--cyan); }
+  td.mono, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .strategy-name { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(73, 224, 165, .8); }
+  .status-dot.paused { background: var(--amber); box-shadow: 0 0 8px rgba(243, 201, 105, .65); }
+  .channel-pill, .status-pill, .mini-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: rgba(15, 24, 36, .8);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font: 9px var(--mono);
+  }
+  .status-pill.running { color: var(--green); border-color: rgba(73, 224, 165, .25); background: rgba(73, 224, 165, .06); }
+  .status-pill.paused { color: var(--amber); border-color: rgba(243, 201, 105, .24); background: rgba(243, 201, 105, .06); }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .muted { color: var(--muted); }
+  .dim { color: var(--dim); }
+
+  .detail-panel .panel-body { display: grid; gap: 12px; }
+  .detail-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .detail-name { font-size: 15px; font-weight: 650; letter-spacing: -.2px; }
+  .detail-sub { margin-top: 5px; color: var(--muted); font-size: 10px; }
+  .detail-pnl { text-align: right; }
+  .detail-pnl .big { color: var(--green); font: 600 18px var(--mono); }
+  .detail-pnl .small { color: var(--dim); font-size: 9px; margin-top: 3px; }
+  .control-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    min-height: 26px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    background: #0d1622;
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+  }
+  .btn:hover { color: var(--text); border-color: #334c6c; background: #111e2d; }
+  .btn.primary { color: #061017; border-color: rgba(73, 224, 165, .6); background: var(--green); font-weight: 650; }
+  .btn.primary:hover { background: #66ecb8; }
+  .btn.danger { color: var(--red); border-color: rgba(255, 111, 139, .3); background: rgba(255, 111, 139, .05); }
+  .btn.small { min-height: 22px; padding: 3px 7px; font-size: 9px; }
+  .kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; }
+  .kv .k { color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+  .kv .v { margin-top: 2px; font: 11px var(--mono); color: var(--text); }
+  .divider { height: 1px; background: var(--line-soft); }
+  .section-label { color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
+  .fills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .fill-box { border: 1px solid var(--line-soft); background: rgba(11, 18, 28, .65); border-radius: 4px; padding: 7px 8px; }
+  .fill-box .label { color: var(--dim); font-size: 8px; text-transform: uppercase; letter-spacing: .1em; }
+  .fill-box .num { margin-top: 3px; font: 600 13px var(--mono); }
+  .fill-box .num.buy { color: var(--green); }
+  .fill-box .num.sell { color: var(--red); }
+
+  .table-scroll { overflow: auto; }
+  .compact td { padding: 7px 10px; }
+  .events { display: grid; gap: 0; }
+  .event {
+    display: grid;
+    grid-template-columns: 58px 1fr;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(24, 38, 56, .5);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+  .event:last-child { border-bottom: 0; }
+  .event .time { color: var(--dim); font: 9px var(--mono); }
+  .event .tag { display: inline-block; color: var(--cyan); font: 9px var(--mono); margin-right: 5px; }
+  .event .tag.green { color: var(--green); }
+  .event .tag.amber { color: var(--amber); }
+  .event .tag.red { color: var(--red); }
+
+  .filter-bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+  .filter-bar .mini-pill { cursor: default; }
+  .filter-bar .active { color: var(--cyan); border-color: rgba(87, 214, 255, .3); background: rgba(87, 214, 255, .06); }
+  .console { display: grid; }
+  .console-row {
+    display: grid;
+    grid-template-columns: 68px 46px 86px minmax(0, 1fr);
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(24, 38, 56, .5);
+    font: 10px/1.5 var(--mono);
+  }
+  .console-row:last-child { border-bottom: 0; }
+  .console-row .time { color: var(--dim); }
+  .console-row .lvl { font-size: 9px; }
+  .console-row .lvl.info { color: var(--blue); }
+  .console-row .lvl.ack { color: var(--green); }
+  .console-row .lvl.warn { color: var(--amber); }
+  .console-row .lvl.err { color: var(--red); }
+  .console-row .src { color: var(--muted); }
+  .console-row .msg { color: var(--text); white-space: normal; }
+  .console-row .msg .dim { color: var(--dim); }
+
+  .local-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid var(--line-soft);
+    border-radius: 7px;
+    background: linear-gradient(120deg, rgba(23, 36, 53, .94), rgba(13, 21, 32, .94));
+    margin-bottom: 10px;
+  }
+  .local-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 650; letter-spacing: -.25px; }
+  .local-sub { color: var(--muted); font-size: 10px; margin-top: 5px; }
+  .local-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .local-grid { display: grid; grid-template-columns: minmax(250px, .7fr) minmax(340px, 1.1fr) minmax(280px, .9fr); gap: 10px; align-items: start; }
+  .local-stack { display: grid; gap: 10px; }
+  .local-bottom { margin-top: 10px; }
+
+  .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; }
+  .param { border-bottom: 1px solid rgba(24, 38, 56, .5); padding-bottom: 6px; }
+  .param .label { color: var(--dim); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+  .param .value { margin-top: 3px; font: 11px var(--mono); }
+  .fair-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(24, 38, 56, .5); }
+  .fair-row:last-child { border-bottom: 0; }
+  .fair-row .label { color: var(--muted); font-size: 10px; }
+  .fair-row .value { font: 600 12px var(--mono); }
+  .fair-row .value.cyan { color: var(--cyan); }
+  .fair-row .value.violet { color: var(--violet); }
+
+  .contract-tabs { display: flex; gap: 3px; }
+  .contract-tabs button { border: 1px solid var(--line); background: #0b121c; color: var(--muted); padding: 4px 7px; border-radius: 3px; font: 9px var(--mono); cursor: pointer; }
+  .contract-tabs button.active { color: var(--cyan); border-color: rgba(87, 214, 255, .3); background: rgba(87, 214, 255, .06); }
+  .book-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+  .book-last { display: flex; align-items: baseline; gap: 6px; }
+  .book-last .last { font: 600 18px var(--mono); color: var(--green); }
+  .book-last .label { color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+  .book-head, .book-row { display: grid; grid-template-columns: 1fr .9fr .9fr 1fr; gap: 0; font: 10px var(--mono); }
+  .book-head { color: var(--dim); font-size: 8px; text-transform: uppercase; letter-spacing: .08em; padding: 5px 12px; border-bottom: 1px solid var(--line-soft); }
+  .book-head div:nth-child(2), .book-head div:nth-child(3) { text-align: right; }
+  .book-head div:nth-child(4) { text-align: right; }
+  .book-row { padding: 3px 12px; cursor: crosshair; }
+  .book-row:hover { background: rgba(92, 143, 194, .07); }
+  .book-row div:nth-child(2), .book-row div:nth-child(3) { text-align: right; }
+  .book-row div:nth-child(4) { text-align: right; }
+  .book-row .bid-qty { color: rgba(73, 224, 165, .62); }
+  .book-row .ask-qty { color: rgba(255, 111, 139, .62); }
+  .book-row .bid-px { color: var(--green); }
+  .book-row .ask-px { color: var(--red); }
+  .book-row .depth-bar { position: relative; }
+  .book-row .depth-bar::before { content: ""; position: absolute; top: 2px; bottom: 2px; right: 0; width: var(--w); background: rgba(73, 224, 165, .08); }
+  .book-row .ask-qty.depth-bar::before { background: rgba(255, 111, 139, .08); }
+  .book-spread { padding: 5px 12px; color: var(--dim); font: 9px var(--mono); border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); display: flex; justify-content: space-between; }
+
+  .ticket { padding: 10px 12px; }
+  .side-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; background: #0a111b; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 9px; }
+  .side-toggle button { border: 0; background: transparent; color: var(--muted); padding: 6px; border-radius: 3px; cursor: pointer; font: 600 10px var(--mono); }
+  .side-toggle button.active.buy { color: #07110c; background: var(--green); }
+  .side-toggle button.active.sell { color: #17070b; background: var(--red); }
+  .ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .field label { display: block; color: var(--dim); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  .field input { width: 100%; height: 29px; border: 1px solid var(--line); border-radius: 4px; background: #0a111b; color: var(--text); padding: 0 8px; outline: 0; font: 11px var(--mono); }
+  .field input:focus { border-color: rgba(87, 214, 255, .5); }
+  .ticket-actions { display: flex; gap: 6px; margin-top: 9px; }
+  .ticket-actions .btn { flex: 1; }
+  .ack-note { margin-top: 8px; color: var(--dim); font-size: 9px; line-height: 1.45; }
+
+  .tape { display: grid; }
+  .tape-row { display: grid; grid-template-columns: 48px 1fr 1fr 44px; gap: 6px; padding: 6px 12px; border-bottom: 1px solid rgba(24, 38, 56, .5); font: 10px var(--mono); }
+  .tape-row:last-child { border-bottom: 0; }
+  .tape-row .time { color: var(--dim); }
+  .tape-row .side-buy { color: var(--green); }
+  .tape-row .side-sell { color: var(--red); }
+
+  .audit-table td { font-size: 10px; }
+  .footer-note { color: var(--dim); font-size: 9px; line-height: 1.5; padding: 12px 2px 0; display: flex; justify-content: space-between; gap: 18px; }
+  .footer-note b { color: var(--muted); font-weight: 500; }
+
+  .toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 50;
+    max-width: 360px;
+    border: 1px solid rgba(73, 224, 165, .28);
+    background: rgba(13, 24, 22, .96);
+    color: var(--text);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: 10px 12px;
+    font-size: 11px;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast .t-tag { color: var(--green); font: 9px var(--mono); letter-spacing: .08em; margin-right: 6px; }
+
+  @media (max-width: 1180px) {
+    .topmeta { display: none; }
+    .overview-grid, .lower-grid, .local-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .local-grid .local-stack { grid-row: auto; }
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-rows: auto 1fr; }
+    .topbar { flex-wrap: wrap; height: auto; padding: 10px 12px; gap: 10px; }
+    .top-actions { width: 100%; }
+    .search { flex: 1; width: auto; }
+    .main-shell { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .workspace { padding: 14px 12px 24px; }
+    .workspace-head { align-items: flex-start; flex-direction: column; }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kv { grid-template-columns: 1fr; }
+    .local-head { flex-direction: column; }
+    .local-controls { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">QL</div>
+      <div>
+        <div class="brand-title">TradeBot Workbench</div>
+        <div class="brand-sub">IPC execution console</div>
+      </div>
+    </div>
+
+    <div class="topmeta">
+      <span class="env">LIVE</span>
+      <span>Account <b>OWN</b></span>
+      <span>Session <b class="ok">READY</b></span>
+      <span>BotGateway <b class="ok">WS</b></span>
+    </div>
+
+    <div class="top-actions">
+      <label class="search">
+        <span>⌕</span>
+        <input aria-label="Search strategy or contract" placeholder="Search strategy, contract, channel…">
+        <kbd>⌘ K</kbd>
+      </label>
+      <button class="icon-btn" title="Notifications" aria-label="Notifications">◉</button>
+      <button class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+      <div class="clock" id="clock">10:42:19</div>
+    </div>
+  </header>
+
+  <div class="main-shell">
+    <aside class="rail">
+      <div class="rail-label">Workspace</div>
+      <nav class="nav" aria-label="Workspace sections">
+        <button class="active" data-section="Strategies"><span class="glyph">▦</span>Strategies <span class="count">3</span></button>
+        <button data-section="Contracts"><span class="glyph">◈</span>Contracts</button>
+        <button data-section="Orders"><span class="glyph">≡</span>Orders <span class="count">7</span></button>
+        <button data-section="Positions"><span class="glyph">◫</span>Positions</button>
+        <button data-section="PnL"><span class="glyph">⌁</span>PnL</button>
+        <button data-section="Console"><span class="glyph">▤</span>Console</button>
+      </nav>
+
+      <div class="rail-spacer"></div>
+
+      <div class="rail-card">
+        <div class="label">Command plane</div>
+        <div class="value">BotGateway · WS</div>
+        <div class="sub">ACK / idempotency<br>operator audit enabled</div>
+      </div>
+      <div class="rail-card">
+        <div class="label">Market data</div>
+        <div class="value">BSE · NSE_FO</div>
+        <div class="sub">2 channels<br>20-level depth</div>
+      </div>
+      <div class="stack-note">
+        <b>Recommended:</b> Web UI + WebSocket.<br>
+        Electron only for desktop shell.<br>
+        Qt remains legacy.
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <div class="workspace-head">
+        <div>
+          <div class="eyebrow" id="eyebrow">Trading desk / overview</div>
+          <h1 id="pageTitle">Strategy overview</h1>
+          <div class="head-sub" id="pageSub">One account <span class="mono">OWN</span> · 2 exchanges · 3 strategy runtimes</div>
+        </div>
+        <div class="view-toggle" role="tablist" aria-label="View mode">
+          <button class="active" data-view="overall" role="tab" aria-selected="true">OVERALL</button>
+          <button data-view="local" role="tab" aria-selected="false">STRATEGY DETAIL</button>
+        </div>
+      </div>
+
+      <section class="view active" id="view-overall" aria-label="Overall view">
+        <div class="metrics">
+          <div class="metric"><div class="label">Running</div><div class="value green">2</div><div class="delta">1 paused · 3 total</div></div>
+          <div class="metric"><div class="label">Open orders</div><div class="value cyan">7</div><div class="delta">BSE 4 · NSE 3</div></div>
+          <div class="metric"><div class="label">Day PnL</div><div class="value green">+$1,410</div><div class="delta">fees $286 included</div></div>
+          <div class="metric"><div class="label">Net exposure</div><div class="value">$1.86M</div><div class="delta">gross $3.12M</div></div>
+          <div class="metric"><div class="label">Heartbeat</div><div class="value cyan">3s</div><div class="delta">all sessions healthy</div></div>
+        </div>
+
+        <div class="overview-grid">
+          <section class="panel strategies-panel">
+            <div class="panel-head">
+              <div class="panel-title"><span class="sq"></span>Strategy runtime</div>
+              <div class="panel-meta">3 instances · select a row</div>
+            </div>
+            <div class="panel-body flush">
+              <div class="strategy-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Strategy</th><th>Channels</th><th>Status</th><th>Bid / Ask</th><th>Position</th><th>Day PnL</th><th>Fills</th><th>Control</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr class="strategy-row selected" data-strategy="pair-01">
+                      <td><div class="strategy-name"><span class="status-dot"></span>pair-01</div></td>
+                      <td><span class="channel-pill">BSE</span> <span class="channel-pill">NSE_FO</span></td>
+                      <td><span class="status-pill running">RUNNING</span></td>
+                      <td class="mono">218.90 <span class="dim">/</span> 219.10</td>
+                      <td class="mono">+4</td>
+                      <td class="mono positive">+$1,284</td>
+                      <td class="mono">18</td>
+                      <td><button class="btn small stop-btn">Stop</button></td>
+                    </tr>
+                    <tr class="strategy-row" data-strategy="mm-01">
+                      <td><div class="strategy-name"><span class="status-dot paused"></span>mm-01</div></td>
+                      <td><span class="channel-pill">BSE</span></td>
+                      <td><span class="status-pill paused">PAUSED</span></td>
+                      <td class="mono">442.10 <span class="dim">/</span> 442.30</td>
+                      <td class="mono">-2</td>
+                      <td class="mono negative">-$286</td>
+                      <td class="mono">6</td>
+                      <td><button class="btn small start-btn">Start</button></td>
+                    </tr>
+                    <tr class="strategy-row" data-strategy="arb-02">
+                      <td><div class="strategy-name"><span class="status-dot"></span>arb-02</div></td>
+                      <td><span class="channel-pill">NSE_FO</span></td>
+                      <td><span class="status-pill running">RUNNING</span></td>
+                      <td class="mono">1,204.5 <span class="dim">/</span> 1,205.2</td>
+                      <td class="mono">0</td>
+                      <td class="mono positive">+$412</td>
+                      <td class="mono">11</td>
+                      <td><button class="btn small stop-btn">Stop</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <aside class="panel detail-panel" aria-label="Selected strategy">
+            <div class="panel-head">
+              <div class="panel-title"><span class="sq"></span><span id="detailTitle">pair-01</span></div>
+              <div class="panel-meta" id="detailStatus">RUNNING</div>
+            </div>
+            <div class="panel-body">
+              <div class="detail-top">
+                <div>
+                  <div class="detail-name" id="detailName">pair-01</div>
+                  <div class="detail-sub" id="detailMeta">BSE + NSE_FO · cross-exchange pair</div>
+                </div>
+                <div class="detail-pnl">
+                  <div class="big" id="detailPnl">+$1,284</div>
+                  <div class="small">day PnL · OWN</div>
+                </div>
+              </div>
+
+              <div class="control-row">
+                <button class="btn primary start-btn">Start</button>
+                <button class="btn danger stop-btn">Stop</button>
+                <button class="btn pause-btn">Pause</button>
+                <button class="btn" data-toast="Parameters are read-only in this visual mock.">Parameters</button>
+              </div>
+
+              <div class="divider"></div>
+
+              <div>
+                <div class="section-label">Selected strategy</div>
+                <div class="kv" style="margin-top:8px">
+                  <div><div class="k">Bid size</div><div class="v">3</div></div>
+                  <div><div class="k">Ask size</div><div class="v">3</div></div>
+                  <div><div class="k">Bid edge</div><div class="v">0.30</div></div>
+                  <div><div class="k">Ask edge</div><div class="v">0.30</div></div>
+                  <div><div class="k">Fair value</div><div class="v" style="color:var(--cyan)">218.95</div></div>
+                  <div><div class="k">FVMA</div><div class="v">219.00</div></div>
+                </div>
+              </div>
+
+              <div class="fills">
+                <div class="fill-box"><div class="label">Bid fills</div><div class="num buy">9</div></div>
+                <div class="fill-box"><div class="label">Ask fills</div><div class="num sell">9</div></div>
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="section-label">Last event</div>
+              <div class="muted" style="font-size:10px;line-height:1.55;margin-top:5px">
+                <span class="positive">●</span> execution router acknowledged order <span class="mono">BSE:218.90</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="lower-grid">
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="sq"></span>Open orders</div><div class="panel-meta">7 working</div></div>
+            <div class="table-scroll">
+              <table class="compact">
+                <thead><tr><th>Channel</th><th>Strategy</th><th>Side</th><th>Price</th><th>Qty</th><th>Status</th><th>Age</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="channel-pill">BSE</span></td><td>pair-01</td><td class="positive">BUY</td><td class="mono">218.90</td><td class="mono">2</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">00:04</td></tr>
+                  <tr><td><span class="channel-pill">NSE_FO</span></td><td>pair-01</td><td class="negative">SELL</td><td class="mono">219.10</td><td class="mono">2</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">00:03</td></tr>
+                  <tr><td><span class="channel-pill">BSE</span></td><td>mm-01</td><td class="positive">BUY</td><td class="mono">442.10</td><td class="mono">1</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">00:12</td></tr>
+                  <tr><td><span class="channel-pill">NSE_FO</span></td><td>arb-02</td><td class="negative">SELL</td><td class="mono">1,205.2</td><td class="mono">1</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">00:18</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="sq"></span>Positions / PnL</div><div class="panel-meta">OWN · 3 lines</div></div>
+            <div class="table-scroll">
+              <table class="compact">
+                <thead><tr><th>Contract</th><th>Strategy</th><th>Net</th><th>Avg</th><th>PnL</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">BSE:BANKNIFTY</td><td>pair-01</td><td class="mono">+4</td><td class="mono">217.90</td><td class="mono positive">+$842</td></tr>
+                  <tr><td class="mono">NSE_FO:BANKNIFTY</td><td>pair-01</td><td class="mono">-4</td><td class="mono">220.10</td><td class="mono positive">+$442</td></tr>
+                  <tr><td class="mono">BSE:BANKNIFTY</td><td>mm-01</td><td class="mono">-2</td><td class="mono">443.20</td><td class="mono negative">-$286</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="sq"></span>Events</div><div class="panel-meta">audit stream</div></div>
+            <div class="events">
+              <div class="event"><div class="time">10:42:19</div><div><span class="tag green">ACK</span> start pair-01 · operator alice</div></div>
+              <div class="event"><div class="time">10:42:18</div><div><span class="tag">EXEC</span> fill BSE · 2 @ 218.90</div></div>
+              <div class="event"><div class="time">10:41:58</div><div><span class="tag amber">DATA</span> MD stale cleared · BSE</div></div>
+              <div class="event"><div class="time">10:41:41</div><div><span class="tag">CTRL</span> NSE_FO heartbeat · 3s</div></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="footer-note">
+          <div><b>Overall view:</b> strategy health, capital, exposure and working orders at a glance.</div>
+          <div>Demo data · no live connection</div>
+        </div>
+      </section>
+
+      <section class="view" id="view-local" aria-label="Strategy detail view">
+        <div class="local-head">
+          <div>
+            <div class="eyebrow">Strategy detail / selected runtime</div>
+            <div class="local-title"><span class="status-dot"></span><span id="localName">pair-01</span><span class="status-pill running" id="localStatus">RUNNING</span></div>
+            <div class="local-sub"><span id="localMeta">BSE + NSE_FO · cross-exchange pair</span> · heartbeat <span class="mono">2s</span> · account <span class="mono">OWN</span></div>
+          </div>
+          <div class="local-controls">
+            <button class="btn primary start-btn">Start</button>
+            <button class="btn danger stop-btn">Stop</button>
+            <button class="btn pause-btn">Pause</button>
+            <button class="btn" data-toast="Command history opened in the audit panel.">History</button>
+          </div>
+        </div>
+
+        <div class="local-grid">
+          <div class="local-stack">
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Control state</div><div class="panel-meta">WS / ACK</div></div>
+              <div class="panel-body">
+                <div class="kv">
+                  <div><div class="k">State</div><div class="v" style="color:var(--green)">RUNNING</div></div>
+                  <div><div class="k">Heartbeat</div><div class="v">2s</div></div>
+                  <div><div class="k">Last command</div><div class="v">start · ACK</div></div>
+                  <div><div class="k">Operator</div><div class="v">alice</div></div>
+                </div>
+                <div class="ack-note">Command envelope: <span class="mono">commandId</span> + <span class="mono">strategyKey</span> + <span class="mono">operator</span>. UI waits for both ACK and status event.</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Quoting parameters</div><div class="panel-meta">read only</div></div>
+              <div class="panel-body">
+                <div class="param-grid">
+                  <div class="param"><div class="label">Bid size</div><div class="value">3</div></div>
+                  <div class="param"><div class="label">Ask size</div><div class="value">3</div></div>
+                  <div class="param"><div class="label">Bid edge</div><div class="value">0.30</div></div>
+                  <div class="param"><div class="label">Ask edge</div><div class="value">0.30</div></div>
+                  <div class="param"><div class="label">Bid slope</div><div class="value">0.00</div></div>
+                  <div class="param"><div class="label">Ask slope</div><div class="value">0.00</div></div>
+                  <div class="param"><div class="label">Bid lean</div><div class="value">1</div></div>
+                  <div class="param"><div class="label">Ask lean</div><div class="value">1</div></div>
+                  <div class="param"><div class="label">Bid exlim</div><div class="value">1,000</div></div>
+                  <div class="param"><div class="label">Ask exlim</div><div class="value">1,000</div></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Fair value</div><div class="panel-meta">live</div></div>
+              <div class="panel-body">
+                <div class="fair-row"><span class="label">Bid fair value</span><span class="value cyan">218.95</span></div>
+                <div class="fair-row"><span class="label">Ask fair value</span><span class="value cyan">219.05</span></div>
+                <div class="fair-row"><span class="label">FV mid average</span><span class="value violet">219.00</span></div>
+                <div class="fair-row"><span class="label">FVMA status</span><span class="value muted">ACTIVE</span></div>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div class="panel-title"><span class="sq"></span>Contract depth</div>
+              <div class="contract-tabs" role="tablist" aria-label="Contract channel">
+                <button class="active" data-contract="BSE">BSE</button>
+                <button data-contract="NSE_FO">NSE_FO</button>
+              </div>
+            </div>
+            <div class="book-top">
+              <div>
+                <div class="book-last"><span class="last" id="bestLast">218.90</span><span class="label">last</span></div>
+                <div class="dim" style="font-size:9px;margin-top:3px"><span id="bookContract">BSE:BANKNIFTY</span> · top 10 of 20</div>
+              </div>
+              <div style="text-align:right">
+                <div class="mono" style="font-size:10px"><span class="positive" id="bestBid">218.90</span> <span class="dim">/</span> <span class="negative" id="bestAsk">219.10</span></div>
+                <div class="dim" style="font-size:9px;margin-top:3px">bid / ask</div>
+              </div>
+            </div>
+            <div class="book-head"><div>Bid qty</div><div>Bid</div><div>Ask</div><div>Ask qty</div></div>
+            <div id="bookRows"></div>
+            <div class="book-spread"><span>spread <span class="mono">0.20</span></span><span>depth <span class="mono">20 × 2</span></span></div>
+          </section>
+
+          <div class="local-stack">
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Order ticket</div><div class="panel-meta">manual</div></div>
+              <div class="ticket">
+                <div class="side-toggle" role="group" aria-label="Side">
+                  <button class="active buy" data-side="BUY">BUY</button>
+                  <button data-side="SELL">SELL</button>
+                </div>
+                <div class="ticket-grid">
+                  <div class="field"><label>Quantity</label><input id="ticketQty" value="2" inputmode="numeric"></div>
+                  <div class="field"><label>Price</label><input id="ticketPrice" value="218.90" inputmode="decimal"></div>
+                </div>
+                <div class="ticket-actions">
+                  <button class="btn primary" id="submitOrder">Submit buy</button>
+                </div>
+                <div class="ack-note">Manual order <span class="mono">source=MANUAL</span> routes through <span class="mono">TradeBotOrderGateway</span>. No direct channel access.</div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Working orders</div><div class="panel-meta">2</div></div>
+              <div class="table-scroll">
+                <table class="compact">
+                  <thead><tr><th>Side</th><th>Px</th><th>Qty</th><th>State</th></tr></thead>
+                  <tbody>
+                    <tr><td class="positive">BUY</td><td class="mono">218.90</td><td class="mono">2</td><td><span class="mini-pill">WORKING</span></td></tr>
+                    <tr><td class="negative">SELL</td><td class="mono">219.10</td><td class="mono">2</td><td><span class="mini-pill">WORKING</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><div class="panel-title"><span class="sq"></span>Trade tape</div><div class="panel-meta">last 4</div></div>
+              <div class="tape">
+                <div class="tape-row"><span class="time">10:42:18</span><span class="side-buy">BUY</span><span>218.90</span><span>2</span></div>
+                <div class="tape-row"><span class="time">10:42:04</span><span class="side-sell">SELL</span><span>219.10</span><span>2</span></div>
+                <div class="tape-row"><span class="time">10:41:51</span><span class="side-sell">SELL</span><span>219.15</span><span>1</span></div>
+                <div class="tape-row"><span class="time">10:41:33</span><span class="side-buy">BUY</span><span>218.85</span><span>1</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <section class="panel local-bottom">
+          <div class="panel-head"><div class="panel-title"><span class="sq"></span>Command audit</div><div class="panel-meta">operator + outcome</div></div>
+          <div class="table-scroll">
+            <table class="compact audit-table">
+              <thead><tr><th>Time</th><th>Command</th><th>Strategy</th><th>Operator</th><th>Result</th><th>Note</th></tr></thead>
+              <tbody>
+                <tr><td class="mono dim">10:42:19</td><td class="mono">start</td><td>pair-01</td><td>alice</td><td class="positive">ACK</td><td class="muted">state → RUNNING</td></tr>
+                <tr><td class="mono dim">10:39:02</td><td class="mono">updateParams</td><td>pair-01</td><td>alice</td><td class="positive">ACK</td><td class="muted">bidSize 3 · askSize 3</td></tr>
+                <tr><td class="mono dim">10:31:44</td><td class="mono">pause</td><td>mm-01</td><td>bob</td><td class="positive">ACK</td><td class="muted">strategy paused</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="footer-note">
+          <div><b>Local view:</b> one strategy, two execution channels, one manual ticket — no hidden account selector.</div>
+          <div>Demo data · no live connection</div>
+        </div>
+      </section>
+
+      <section class="view" id="view-orders" aria-label="Orders view">
+        <div class="metrics">
+          <div class="metric"><div class="label">Working</div><div class="value cyan">7</div><div class="delta">5 live · 1 partial · 1 rejected</div></div>
+          <div class="metric"><div class="label">Filled today</div><div class="value green">23</div><div class="delta">BSE 14 · NSE 9</div></div>
+          <div class="metric"><div class="label">Canceled</div><div class="value">4</div><div class="delta">all acknowledged</div></div>
+          <div class="metric"><div class="label">Avg ack</div><div class="value">18ms</div><div class="delta">BotGateway WS</div></div>
+          <div class="metric"><div class="label">Stale</div><div class="value amber">0</div><div class="delta">order view current</div></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span class="sq"></span>Orders</div>
+            <div class="panel-meta">OWN · live + today history</div>
+          </div>
+          <div class="filter-bar">
+            <span class="mini-pill active">ALL</span><span class="mini-pill">WORKING</span><span class="mini-pill">FILLED</span><span class="mini-pill">REJECTED</span><span class="mini-pill">CANCELED</span>
+            <span class="dim" style="margin-left:auto;font-size:9px">click a row for detail</span>
+          </div>
+          <div class="table-scroll">
+            <table class="compact">
+              <thead><tr><th>Channel</th><th>Strategy</th><th>Client order</th><th>Side</th><th>Type</th><th>Price</th><th>Qty</th><th>Filled</th><th>Status</th><th>Updated</th></tr></thead>
+              <tbody>
+                <tr><td><span class="channel-pill">BSE</span></td><td>pair-01</td><td class="mono">OWN:0001842</td><td class="positive">BUY</td><td>LIMIT</td><td class="mono">218.90</td><td class="mono">2</td><td class="mono">0</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">10:42:18</td></tr>
+                <tr><td><span class="channel-pill">NSE_FO</span></td><td>pair-01</td><td class="mono">OWN:0001843</td><td class="negative">SELL</td><td>LIMIT</td><td class="mono">219.10</td><td class="mono">2</td><td class="mono">0</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">10:42:19</td></tr>
+                <tr><td><span class="channel-pill">BSE</span></td><td>mm-01</td><td class="mono">OWN:0001838</td><td class="positive">BUY</td><td>LIMIT</td><td class="mono">442.10</td><td class="mono">1</td><td class="mono">0</td><td><span class="mini-pill">WORKING</span></td><td class="mono dim">10:42:07</td></tr>
+                <tr><td><span class="channel-pill">NSE_FO</span></td><td>arb-02</td><td class="mono">OWN:0001835</td><td class="negative">SELL</td><td>LIMIT</td><td class="mono">1,205.2</td><td class="mono">1</td><td class="mono">1</td><td><span class="mini-pill" style="color:var(--amber);border-color:rgba(243,201,105,.25)">PARTIAL</span></td><td class="mono dim">10:41:56</td></tr>
+                <tr><td><span class="channel-pill">BSE</span></td><td>pair-01</td><td class="mono">OWN:0001840</td><td class="positive">BUY</td><td>LIMIT</td><td class="mono">218.85</td><td class="mono">1</td><td class="mono">1</td><td><span class="mini-pill" style="color:var(--green);border-color:rgba(73,224,165,.25)">FILLED</span></td><td class="mono dim">10:41:33</td></tr>
+                <tr><td><span class="channel-pill">BSE</span></td><td>mm-01</td><td class="mono">OWN:0001839</td><td class="negative">SELL</td><td>LIMIT</td><td class="mono">443.00</td><td class="mono">1</td><td class="mono">0</td><td><span class="mini-pill" style="color:var(--red);border-color:rgba(255,111,139,.25)">REJECTED</span></td><td class="mono dim">10:41:22</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="footer-note"><div><b>Orders:</b> authoritative state comes from TradingChannel.OrderRegistry; this view is a read model.</div><div>Demo data · no live connection</div></div>
+      </section>
+
+      <section class="view" id="view-positions" aria-label="Positions view">
+        <div class="metrics">
+          <div class="metric"><div class="label">Positions</div><div class="value cyan">4</div><div class="delta">2 contracts · 2 strategies</div></div>
+          <div class="metric"><div class="label">Net exposure</div><div class="value">$1.86M</div><div class="delta">gross $3.12M</div></div>
+          <div class="metric"><div class="label">Unrealized</div><div class="value green">+$1,128</div><div class="delta">mark-to-market</div></div>
+          <div class="metric"><div class="label">Realized</div><div class="value green">+$282</div><div class="delta">fees included</div></div>
+          <div class="metric"><div class="label">Account</div><div class="value">OWN</div><div class="delta">singleton deployment account</div></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head"><div class="panel-title"><span class="sq"></span>Positions</div><div class="panel-meta">OWN · snapshot + fills</div></div>
+          <div class="table-scroll">
+            <table class="compact">
+              <thead><tr><th>Contract</th><th>Strategy</th><th>Channel</th><th>Net qty</th><th>Avg price</th><th>Mark</th><th>Unrealized</th><th>Realized</th><th>Exposure</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">BSE:BANKNIFTY</td><td>pair-01</td><td><span class="channel-pill">BSE</span></td><td class="mono positive">+4</td><td class="mono">217.90</td><td class="mono">218.90</td><td class="mono positive">+$400</td><td class="mono positive">+$442</td><td class="mono">$875.6K</td></tr>
+                <tr><td class="mono">NSE_FO:BANKNIFTY</td><td>pair-01</td><td><span class="channel-pill">NSE_FO</span></td><td class="mono negative">-4</td><td class="mono">220.10</td><td class="mono">219.10</td><td class="mono positive">+$400</td><td class="mono positive">+$442</td><td class="mono">$876.4K</td></tr>
+                <tr><td class="mono">BSE:BANKNIFTY</td><td>mm-01</td><td><span class="channel-pill">BSE</span></td><td class="mono negative">-2</td><td class="mono">443.20</td><td class="mono">442.30</td><td class="mono positive">+$180</td><td class="mono negative">-$286</td><td class="mono">$884.6K</td></tr>
+                <tr><td class="mono">NSE_FO:BANKNIFTY</td><td>arb-02</td><td><span class="channel-pill">NSE_FO</span></td><td class="mono">0</td><td class="mono">—</td><td class="mono">1,205.2</td><td class="mono">$0</td><td class="mono positive">+$412</td><td class="mono">$0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="footer-note"><div><b>Positions:</b> read model. Position snapshot is a baseline; fills remain the authoritative event source.</div><div>Demo data · no live connection</div></div>
+      </section>
+
+      <section class="view" id="view-pnl" aria-label="PnL view">
+        <div class="metrics">
+          <div class="metric"><div class="label">Realized</div><div class="value green">+$282</div><div class="delta">closed quantity · fees included</div></div>
+          <div class="metric"><div class="label">Unrealized</div><div class="value green">+$1,128</div><div class="delta">mark-to-market</div></div>
+          <div class="metric"><div class="label">Fees</div><div class="value amber">$286</div><div class="delta">exchange schedule</div></div>
+          <div class="metric"><div class="label">Net PnL</div><div class="value green">+$1,410</div><div class="delta">day · OWN</div></div>
+          <div class="metric"><div class="label">Yield</div><div class="value cyan">0.076%</div><div class="delta">net / traded value</div></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head"><div class="panel-title"><span class="sq"></span>PnL by contract</div><div class="panel-meta">key: OWN + contract · 146-compatible</div></div>
+          <div class="table-scroll">
+            <table class="compact">
+              <thead><tr><th>Contract</th><th>Channel</th><th>Net qty</th><th>Mark</th><th>Realized</th><th>Unrealized</th><th>Fees</th><th>Day PnL</th><th>Yield</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">BSE:BANKNIFTY</td><td><span class="channel-pill">BSE</span></td><td class="mono">+4</td><td class="mono">218.90</td><td class="mono positive">+$442</td><td class="mono positive">+$400</td><td class="mono">$112</td><td class="mono positive">+$842</td><td class="mono">0.096%</td></tr>
+                <tr><td class="mono">NSE_FO:BANKNIFTY</td><td><span class="channel-pill">NSE_FO</span></td><td class="mono">-4</td><td class="mono">219.10</td><td class="mono positive">+$442</td><td class="mono positive">+$400</td><td class="mono">$98</td><td class="mono positive">+$842</td><td class="mono">0.096%</td></tr>
+                <tr><td class="mono">BSE:BANKNIFTY</td><td><span class="channel-pill">BSE</span></td><td class="mono">-2</td><td class="mono">442.30</td><td class="mono negative">-$286</td><td class="mono positive">+$180</td><td class="mono">$48</td><td class="mono negative">-$106</td><td class="mono">-0.012%</td></tr>
+                <tr><td class="mono">NSE_FO:BANKNIFTY</td><td><span class="channel-pill">NSE_FO</span></td><td class="mono">0</td><td class="mono">1,205.2</td><td class="mono positive">+$412</td><td class="mono">$0</td><td class="mono">$28</td><td class="mono positive">+$384</td><td class="mono">0.031%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="footer-note"><div><b>PnL key:</b> account + contract, matching 146. strategyKey is not in the current PnL key; add it later for strategy attribution.</div><div>Demo data · no live connection</div></div>
+      </section>
+
+      <section class="view" id="view-console" aria-label="Console view">
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title"><span class="sq"></span>Console</div><div class="panel-meta">strategy / channel / gateway</div></div>
+          <div class="filter-bar"><span class="mini-pill active">ALL</span><span class="mini-pill">INFO</span><span class="mini-pill">ACK</span><span class="mini-pill">WARN</span><span class="mini-pill">ERROR</span><span class="dim" style="margin-left:auto;font-size:9px">audit stream · operator visible</span></div>
+          <div class="console">
+            <div class="console-row"><span class="time">10:42:19.104</span><span class="lvl ack">ACK</span><span class="src">BotGateway</span><span class="msg">start pair-01 accepted · commandId <span class="dim">cmd-0001</span> · operator alice</span></div>
+            <div class="console-row"><span class="time">10:42:19.101</span><span class="lvl info">INFO</span><span class="src">StrategyRuntime</span><span class="msg">pair-01 state → RUNNING · heartbeat 2s</span></div>
+            <div class="console-row"><span class="time">10:42:18.882</span><span class="lvl info">INFO</span><span class="src">TradingChannel</span><span class="msg">fill BSE:BANKNIFTY · BUY 2 @ 218.90 · clientOrderId OWN:0001842</span></div>
+            <div class="console-row"><span class="time">10:42:18.440</span><span class="lvl info">INFO</span><span class="src">MarketData</span><span class="msg">BSE depth 20 levels · best bid 218.90 / ask 219.10</span></div>
+            <div class="console-row"><span class="time">10:42:07.238</span><span class="lvl ack">ACK</span><span class="src">BotGateway</span><span class="msg">updateParams pair-01 accepted · bidSize=3 askSize=3</span></div>
+            <div class="console-row"><span class="time">10:41:58.021</span><span class="lvl warn">WARN</span><span class="src">MarketData</span><span class="msg">BSE tick gap 1.2s · strategy remained READY</span></div>
+            <div class="console-row"><span class="time">10:41:56.770</span><span class="lvl info">INFO</span><span class="src">TradingChannel</span><span class="msg">NSE_FO partial fill · clientOrderId OWN:0001835</span></div>
+            <div class="console-row"><span class="time">10:41:44.019</span><span class="lvl ack">ACK</span><span class="src">BotGateway</span><span class="msg">pause mm-01 accepted · operator bob</span></div>
+            <div class="console-row"><span class="time">10:41:43.992</span><span class="lvl info">INFO</span><span class="src">StrategyRuntime</span><span class="msg">mm-01 state → PAUSED · reason=operator</span></div>
+            <div class="console-row"><span class="time">10:41:22.301</span><span class="lvl err">ERROR</span><span class="src">TradingChannel</span><span class="msg">BSE order rejected · OWN:0001839 · price outside band</span></div>
+            <div class="console-row"><span class="time">10:41:21.880</span><span class="lvl info">INFO</span><span class="src">BotGateway</span><span class="msg">manual sell 1 @ 443.00 routed to TradeBotOrderGateway</span></div>
+            <div class="console-row"><span class="time">10:41:00.003</span><span class="lvl info">INFO</span><span class="src">Session</span><span class="msg">BSE + NSE_FO READY · account OWN</span></div>
+          </div>
+        </div>
+        <div class="footer-note"><div><b>Console:</b> errors and command ACKs are first-class read-model events, not log scraping.</div><div>Demo data · no live connection</div></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const strategies = {
+    'pair-01': {
+      name: 'pair-01',
+      meta: 'BSE + NSE_FO · cross-exchange pair',
+      status: 'RUNNING',
+      pnl: '+$1,284',
+      cls: 'running',
+      dot: ''
+    },
+    'mm-01': {
+      name: 'mm-01',
+      meta: 'BSE · market making',
+      status: 'PAUSED',
+      pnl: '-$286',
+      cls: 'paused',
+      dot: 'paused'
+    },
+    'arb-02': {
+      name: 'arb-02',
+      meta: 'NSE_FO · basis arbitrage',
+      status: 'RUNNING',
+      pnl: '+$412',
+      cls: 'running',
+      dot: ''
+    }
+  };
+
+  const contractData = {
+    BSE: {
+      name: 'BSE:BANKNIFTY',
+      base: 218.90,
+      step: 0.05,
+      last: '218.90'
+    },
+    NSE_FO: {
+      name: 'NSE_FO:BANKNIFTY',
+      base: 1204.50,
+      step: 0.50,
+      last: '1,204.50'
+    }
+  };
+
+  let selectedStrategy = 'pair-01';
+  let selectedContract = 'BSE';
+  let selectedSide = 'BUY';
+  let commandSeq = 1;
+
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+  function fmt(n) {
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function showToast(text) {
+    const toast = $('#toast');
+    toast.innerHTML = '<span class="t-tag">ACK</span>' + text;
+    toast.classList.add('show');
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  function commandId() {
+    return 'cmd-' + String(commandSeq++).padStart(4, '0');
+  }
+
+  function setStatus(status) {
+    const item = strategies[selectedStrategy];
+    item.status = status;
+    item.cls = status === 'RUNNING' ? 'running' : 'paused';
+    item.dot = status === 'RUNNING' ? '' : 'paused';
+    const detailStatus = $('#detailStatus');
+    const localStatus = $('#localStatus');
+    if (detailStatus) detailStatus.textContent = status;
+    if (localStatus) {
+      localStatus.textContent = status;
+      localStatus.className = 'status-pill ' + item.cls;
+    }
+    const row = document.querySelector(`.strategy-row[data-strategy="${selectedStrategy}"]`);
+    if (row) {
+      const dot = row.querySelector('.status-dot');
+      if (dot) dot.className = 'status-dot ' + item.dot;
+      const pill = row.querySelector('.status-pill');
+      if (pill) {
+        pill.textContent = status;
+        pill.className = 'status-pill ' + item.cls;
+      }
+      const control = row.querySelector('td:last-child button');
+      if (control) {
+        control.textContent = status === 'RUNNING' ? 'Stop' : 'Start';
+        control.className = 'btn small ' + (status === 'RUNNING' ? 'stop-btn' : 'start-btn');
+      }
+    }
+    const localDot = $('.local-title .status-dot');
+    if (localDot) localDot.className = 'status-dot ' + item.dot;
+  }
+
+  function selectStrategy(key) {
+    selectedStrategy = key;
+    const item = strategies[key];
+    $$('.strategy-row').forEach(row => row.classList.toggle('selected', row.dataset.strategy === key));
+    const detailTitle = $('#detailTitle');
+    const detailName = $('#detailName');
+    const detailMeta = $('#detailMeta');
+    const detailPnl = $('#detailPnl');
+    const detailStatus = $('#detailStatus');
+    const localName = $('#localName');
+    const localMeta = $('#localMeta');
+    if (detailTitle) detailTitle.textContent = item.name;
+    if (detailName) detailName.textContent = item.name;
+    if (detailMeta) detailMeta.textContent = item.meta;
+    if (detailPnl) {
+      detailPnl.textContent = item.pnl;
+      detailPnl.className = 'big ' + (item.pnl.startsWith('+') ? 'positive' : 'negative');
+    }
+    if (detailStatus) detailStatus.textContent = item.status;
+    if (localName) localName.textContent = item.name;
+    if (localMeta) localMeta.textContent = item.meta;
+    const localStatus = $('#localStatus');
+    if (localStatus) {
+      localStatus.textContent = item.status;
+      localStatus.className = 'status-pill ' + item.cls;
+    }
+  }
+
+  function renderBook() {
+    const data = contractData[selectedContract];
+    const rows = [];
+    for (let i = 0; i < 10; i++) {
+      const bid = data.base - i * data.step;
+      const ask = data.base + (i + 1) * data.step;
+      const bidQty = 2 + (i % 4);
+      const askQty = 3 + (i % 3);
+      const bidW = Math.min(92, 16 + bidQty * 10);
+      const askW = Math.min(92, 16 + askQty * 10);
+      rows.push(`
+        <div class="book-row">
+          <div class="bid-qty depth-bar" style="--w:${bidW}%">${bidQty}</div>
+          <div class="bid-px">${fmt(bid)}</div>
+          <div class="ask-px">${fmt(ask)}</div>
+          <div class="ask-qty depth-bar" style="--w:${askW}%">${askQty}</div>
+        </div>
+      `);
+    }
+    $('#bookRows').innerHTML = rows.join('');
+    $('#bestBid').textContent = fmt(data.base);
+    $('#bestAsk').textContent = fmt(data.base + data.step);
+    $('#bestLast').textContent = data.last;
+    $('#bookContract').textContent = data.name;
+    $('#ticketPrice').value = fmt(data.base);
+  }
+
+  const viewMeta = {
+    overall: {
+      title: 'Strategy overview',
+      eyebrow: 'Trading desk / overview',
+      sub: 'One account <span class="mono">OWN</span> · 2 exchanges · 3 strategy runtimes',
+      nav: 'Strategies'
+    },
+    local: {
+      title: 'Strategy detail',
+      eyebrow: 'Trading desk / strategy',
+      sub: 'pair-01 runtime · two channels · one manual ticket',
+      nav: 'Contracts'
+    },
+    orders: {
+      title: 'Orders',
+      eyebrow: 'Blotter / orders',
+      sub: 'Live working orders · today history · read model',
+      nav: 'Orders'
+    },
+    positions: {
+      title: 'Positions',
+      eyebrow: 'Portfolio / positions',
+      sub: 'Account OWN · snapshot baseline + fills',
+      nav: 'Positions'
+    },
+    pnl: {
+      title: 'PnL',
+      eyebrow: 'Portfolio / pnl',
+      sub: 'Account OWN · contract key · 146-compatible',
+      nav: 'PnL'
+    },
+    console: {
+      title: 'Console',
+      eyebrow: 'Diagnostics / audit',
+      sub: 'ACK, execution, data health and operator events',
+      nav: 'Console'
+    }
+  };
+
+  function switchView(view) {
+    $$('.view').forEach(el => el.classList.toggle('active', el.id === 'view-' + view));
+    $$('.view-toggle button').forEach(btn => {
+      const active = btn.dataset.view === view;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-selected', String(active));
+    });
+    $$('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.section === viewMeta[view].nav));
+    $('#pageTitle').textContent = viewMeta[view].title;
+    $('#eyebrow').textContent = viewMeta[view].eyebrow;
+    $('#pageSub').innerHTML = viewMeta[view].sub;
+  }
+
+  $$('.view-toggle button').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
+
+  $$('.strategy-row').forEach(row => {
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('button')) return;
+      if (row.dataset.strategy !== 'pair-01') {
+        showToast('Visual mock: only pair-01 detail is wired. Other rows are illustrative.');
+        return;
+      }
+      selectStrategy(row.dataset.strategy);
+    });
+  });
+
+  document.addEventListener('click', (event) => {
+    const start = event.target.closest('.start-btn');
+    const stop = event.target.closest('.stop-btn');
+    const pause = event.target.closest('.pause-btn');
+    if (start) {
+      event.stopPropagation();
+      setStatus('RUNNING');
+      showToast(`start ${selectedStrategy} · ${commandId()} accepted · state → RUNNING`);
+    } else if (stop) {
+      event.stopPropagation();
+      setStatus('PAUSED');
+      showToast(`stop ${selectedStrategy} · ${commandId()} accepted · state → PAUSED`);
+    } else if (pause) {
+      event.stopPropagation();
+      setStatus('PAUSED');
+      showToast(`pause ${selectedStrategy} · ${commandId()} accepted · state → PAUSED`);
+    }
+  });
+
+  $$('[data-toast]').forEach(btn => btn.addEventListener('click', () => showToast(btn.dataset.toast)));
+
+  $$('.contract-tabs button').forEach(btn => btn.addEventListener('click', () => {
+    selectedContract = btn.dataset.contract;
+    $$('.contract-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+    renderBook();
+    showToast(`contract channel → ${selectedContract} · MARKET_DATA subscription`);
+  }));
+
+  $$('.side-toggle button').forEach(btn => btn.addEventListener('click', () => {
+    selectedSide = btn.dataset.side;
+    $$('.side-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+    $('#submitOrder').textContent = selectedSide === 'BUY' ? 'Submit buy' : 'Submit sell';
+  }));
+
+  $('#submitOrder').addEventListener('click', () => {
+    const qty = $('#ticketQty').value || '0';
+    const price = $('#ticketPrice').value || '—';
+    showToast(`manual ${selectedSide.toLowerCase()} ${qty} @ ${price} · ${commandId()} routed to TradeBotOrderGateway`);
+  });
+
+  const navView = {
+    Strategies: 'overall',
+    Contracts: 'local',
+    Orders: 'orders',
+    Positions: 'positions',
+    PnL: 'pnl',
+    Console: 'console'
+  };
+
+  $$('.nav button').forEach(btn => btn.addEventListener('click', () => {
+    switchView(navView[btn.dataset.section]);
+  }));
+
+  function tickClock() {
+    const now = new Date();
+    $('#clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+  }
+
+  selectStrategy('pair-01');
+  renderBook();
+  tickClock();
+  setInterval(tickClock, 1000);
+</script>
+</body>
+</html>

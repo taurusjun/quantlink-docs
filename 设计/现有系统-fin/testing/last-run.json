@@ -1,0 +1,1065 @@
+{
+  "generatedAt": "2026-11-12T12:48:18Z",
+  "dryRun": false,
+  "assumeYes": false,
+  "summary": {
+    "commands": 47,
+    "PASS": 47,
+    "FAIL": 0,
+    "SKIP": 0,
+    "NOT_RUN": 0
+  },
+  "commands": [
+    {
+      "block": "B1",
+      "kind": "shell",
+      "name": "CTP 价格哨兵清洗（C++，无需 SDK）",
+      "run": "bash tools/testing/ctp-price-test.sh",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:55Z"
+    },
+    {
+      "block": "B1",
+      "kind": "gradle",
+      "name": "行情编解码与 Aeron 回环",
+      "run": "./gradlew :backend:shared:aeron:test --tests '*MarketDataCodecTest*' --tests '*AeronEchoTest*' --tests '*AeronUdpLoopbackTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:56Z"
+    },
+    {
+      "block": "B1",
+      "kind": "gradle",
+      "name": "runner 行情价格（CTP 哨兵）",
+      "run": "./gradlew :backend:runtime-runner:test --tests '*AeronMarketDataPriceTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:56Z"
+    },
+    {
+      "block": "B1",
+      "kind": "gradle",
+      "name": "控制面行情服务单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*MarketDataServiceTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:57Z"
+    },
+    {
+      "block": "B1",
+      "kind": "python",
+      "name": "只读 API 价格不变量（ticks/quotes/pair_state）",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite market",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:58Z"
+    },
+    {
+      "block": "B2",
+      "kind": "gradle",
+      "name": "三类策略单测",
+      "run": "./gradlew :backend:runtime:test --tests '*FuturesPairStrategyTest*' --tests '*OptionQuotingStrategyTest*' --tests '*SimpleHedgingStrategyTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:45:59Z"
+    },
+    {
+      "block": "B2",
+      "kind": "gradle",
+      "name": "Pair runner 单测",
+      "run": "./gradlew :backend:runtime-runner:test --tests '*PairSpreadRunnerTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:00Z"
+    },
+    {
+      "block": "B2",
+      "kind": "node",
+      "name": "Pair 策略 E2E（写策略/部署，自清理）",
+      "run": "node tools/e2e/t030-pair.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:00Z"
+    },
+    {
+      "block": "B3",
+      "kind": "gradle",
+      "name": "风控引擎单测",
+      "run": "./gradlew :backend:runtime:test --tests '*RiskEngineTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:01Z"
+    },
+    {
+      "block": "B3",
+      "kind": "gradle",
+      "name": "收盘守卫单测",
+      "run": "./gradlew :backend:runtime-runner:test --tests '*CloseoutGuardTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:02Z"
+    },
+    {
+      "block": "B3",
+      "kind": "python",
+      "name": "风控快照只读探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite risk",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:02Z"
+    },
+    {
+      "block": "B4",
+      "kind": "gradle",
+      "name": "OMS 单测",
+      "run": "./gradlew :backend:runtime:test --tests '*OrderManagerTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:03Z"
+    },
+    {
+      "block": "B4",
+      "kind": "gradle",
+      "name": "ORS 核心单测",
+      "run": "./gradlew :backend:ors-core:test",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:03Z"
+    },
+    {
+      "block": "B4",
+      "kind": "gradle",
+      "name": "控制面下单/回报单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*ManualOrderPublisherTest*' --tests '*AeronOrderUpdateConsumerTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:04Z"
+    },
+    {
+      "block": "B4",
+      "kind": "gradle",
+      "name": "SBE 往返",
+      "run": "./gradlew :backend:shared:sbe:test",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:04Z"
+    },
+    {
+      "block": "B4",
+      "kind": "gradle",
+      "name": "SimVenue 撮合 E2E（进程内）",
+      "run": "./gradlew :backend:sim-exchange:test --tests '*P0AeronEndToEndTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:04Z"
+    },
+    {
+      "block": "B5",
+      "kind": "gradle",
+      "name": "台账/结算/持仓单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*ExecutionLedgerServiceTest*' --tests '*SettlementServiceTest*' --tests '*StrategyPositionServiceTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:05Z"
+    },
+    {
+      "block": "B5",
+      "kind": "gradle",
+      "name": "组合单测",
+      "run": "./gradlew :backend:runtime:test --tests '*PortfolioTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:06Z"
+    },
+    {
+      "block": "B5",
+      "kind": "gradle",
+      "name": "对账单测",
+      "run": "./gradlew :backend:reconciliation:test",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:06Z"
+    },
+    {
+      "block": "B5",
+      "kind": "gradle",
+      "name": "schema 约束（Testcontainers，需 Docker）",
+      "run": "./gradlew :backend:control-plane:test --tests '*SchemaIntegrationTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:07Z"
+    },
+    {
+      "block": "B6",
+      "kind": "gradle",
+      "name": "策略中心写→读契约（需要契约库）",
+      "run": "./gradlew :backend:control-plane:test --tests '*StrategyVersionContractIT*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:08Z"
+    },
+    {
+      "block": "B6",
+      "kind": "gradle",
+      "name": "配置合并/校验单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*StrategyConfigMergeTest*' --tests '*StrategyConfigValidatorTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:08Z"
+    },
+    {
+      "block": "B6",
+      "kind": "python",
+      "name": "策略中心只读 API 探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite strategy",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:08Z"
+    },
+    {
+      "block": "B6",
+      "kind": "node",
+      "name": "策略中心 UI smoke（只读）",
+      "run": "node tools/e2e/readonly-smoke.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:28Z"
+    },
+    {
+      "block": "B7",
+      "kind": "gradle",
+      "name": "指标编解码单测",
+      "run": "./gradlew :backend:shared:sbe:test --tests '*SbeRoundTripTest*' --tests '*SbeV2RoundTripTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:28Z"
+    },
+    {
+      "block": "B7",
+      "kind": "python",
+      "name": "指标只读 API 探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite indicators",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:29Z"
+    },
+    {
+      "block": "B8",
+      "kind": "gradle",
+      "name": "告警引擎单测",
+      "run": "./gradlew :backend:telemetry:test --tests '*AlertEngineTest*' --tests '*AsyncTelemetrySinkTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:29Z"
+    },
+    {
+      "block": "B8",
+      "kind": "python",
+      "name": "告警只读 API 探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite alerts",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:29Z"
+    },
+    {
+      "block": "B9",
+      "kind": "gradle",
+      "name": "Agent token 校验单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*AgentTokenVerifierTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:30Z"
+    },
+    {
+      "block": "B9",
+      "kind": "python",
+      "name": "权限/审计只读探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite access",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:30Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "策略中心只读 smoke",
+      "run": "node tools/e2e/t030-smoke.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:39Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "手工单预览 smoke",
+      "run": "node tools/e2e/t030-manual-preview.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:42Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "导航 5 组 / F2-F12 / kiosk",
+      "run": "node tools/e2e/shortcuts-smoke.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:46Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "驾驶舱可见性（runState/柜台/新鲜度/未归属/PnL）",
+      "run": "node tools/e2e/trader-cockpit.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:54Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "订单 blotter（默认未完成/批量/详情）",
+      "run": "node tools/e2e/orders-blotter.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:46:57Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "策略编辑走引导页（无手动更新版本）",
+      "run": "node tools/e2e/version-safety.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:47:01Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "部署中策略编辑（自动升版 + 同部署重启，自清理）",
+      "run": "node tools/e2e/edit-deployed.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:47:15Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "手工单（合约搜索/tick/提交门禁）",
+      "run": "node tools/e2e/manual-tick.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:47:18Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "告警聚合（级别/次数/静默/最后时间）",
+      "run": "node tools/e2e/alerts-aggregation.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:47:21Z"
+    },
+    {
+      "block": "B10",
+      "kind": "shell",
+      "name": "视觉布局不变量（1920/1440/1280/900）",
+      "run": "npx playwright test tests/visual/specs/w4-layout.spec.ts",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:05Z"
+    },
+    {
+      "block": "B10",
+      "kind": "node",
+      "name": "生命周期写路径 E2E（建策略/版本/停止/fork，自清理）",
+      "run": "node tools/e2e/t030-lifecycle.mjs",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:15Z"
+    },
+    {
+      "block": "B11",
+      "kind": "gradle",
+      "name": "保留任务单测",
+      "run": "./gradlew :backend:control-plane:test --tests '*RetentionTaskTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:16Z"
+    },
+    {
+      "block": "B11",
+      "kind": "gradle",
+      "name": "回放网关单测",
+      "run": "./gradlew :backend:replay-gateway:test",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:16Z"
+    },
+    {
+      "block": "B11",
+      "kind": "python",
+      "name": "健康与定时任务只读探测",
+      "run": "python3 tools/testing/checks/api_readonly_check.py --suite ops",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:17Z"
+    },
+    {
+      "block": "B12",
+      "kind": "gradle",
+      "name": "写→读契约（runner 侧）",
+      "run": "./gradlew :backend:runtime-runner:test --tests '*DeploymentVersionConfigIT*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:17Z"
+    },
+    {
+      "block": "B12",
+      "kind": "gradle",
+      "name": "配置加载单测",
+      "run": "./gradlew :backend:runtime-runner:test --tests '*RunnerConfigTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:17Z"
+    },
+    {
+      "block": "B12",
+      "kind": "gradle",
+      "name": "配置加载器单测（shared/config）",
+      "run": "./gradlew :backend:shared:config:test --tests '*ConfigLoaderTest*'",
+      "status": "PASS",
+      "exitCode": 0,
+      "note": "",
+      "at": "2026-11-12T12:48:18Z"
+    }
+  ],
+  "blocks": [
+    {
+      "id": "B1",
+      "name": "行情链路（CTP Adapter -> Aeron md -> runner）",
+      "status": "PASS",
+      "commands": 5
+    },
+    {
+      "id": "B2",
+      "name": "策略执行（pair / option_quoting / simple_hedging）",
+      "status": "PASS",
+      "commands": 3
+    },
+    {
+      "id": "B3",
+      "name": "本地风控（快照/fail-closed/限仓/价格偏离/节流）",
+      "status": "PASS",
+      "commands": 3
+    },
+    {
+      "id": "B4",
+      "name": "下单与 ORS（Aeron order/cancel -> ORS -> CTP）",
+      "status": "PASS",
+      "commands": 5
+    },
+    {
+      "id": "B5",
+      "name": "持仓/盈亏/结算（position_ledger、PnL 快照、closeout）",
+      "status": "PASS",
+      "commands": 4
+    },
+    {
+      "id": "B6",
+      "name": "策略中心（CRUD/版本/fork/部署/激活/停止/回滚）",
+      "status": "PASS",
+      "commands": 4
+    },
+    {
+      "id": "B7",
+      "name": "指标（Agent 计算 -> 2012 -> 控制面入库 -> 时间戳）",
+      "status": "PASS",
+      "commands": 2
+    },
+    {
+      "id": "B8",
+      "name": "告警与消息（生成/去重/ack/跨日）",
+      "status": "PASS",
+      "commands": 2
+    },
+    {
+      "id": "B9",
+      "name": "权限与审计（账户范围 / SHADOW vs LIVE / audit_log）",
+      "status": "PASS",
+      "commands": 2
+    },
+    {
+      "id": "B10",
+      "name": "Web UI（策略中心/告警/仪表盘/手工下单）",
+      "status": "PASS",
+      "commands": 11
+    },
+    {
+      "id": "B11",
+      "name": "运维（market watch / 归档回放 / 定时任务 / 备份 / 健康检查）",
+      "status": "PASS",
+      "commands": 3
+    },
+    {
+      "id": "B12",
+      "name": "配置契约（版本快照写入 -> runner 读取 -> 回滚）",
+      "status": "PASS",
+      "commands": 3
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "E2E-B1-001",
+      "block": "B1",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B1-002",
+      "block": "B1",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B1-003",
+      "block": "B1",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B1-004",
+      "block": "B1",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B1-005",
+      "block": "B1",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-001",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-002",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-003",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-004",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-005",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B2-006",
+      "block": "B2",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-001",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-002",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-003",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-004",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-005",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-006",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-007",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-008",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B3-009",
+      "block": "B3",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-001",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-002",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-003",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-004",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-005",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-006",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-007",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B4-008",
+      "block": "B4",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-001",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-002",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-003",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-004",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-005",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B5-006",
+      "block": "B5",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-001",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-002",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-003",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-004",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-005",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-006",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-007",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-008",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-009",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-010",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-011",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-012",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-013",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-014",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-016",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-017",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B6-018",
+      "block": "B6",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-001",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-002",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-003",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-004",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-005",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-006",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B7-007",
+      "block": "B7",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-001",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-002",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-003",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-004",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-005",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-006",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-007",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B8-008",
+      "block": "B8",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B9-001",
+      "block": "B9",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B9-002",
+      "block": "B9",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B9-003",
+      "block": "B9",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B9-004",
+      "block": "B9",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-001",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-002",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-003",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-004",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-005",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-007",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-008",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-009",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-010",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-011",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-013",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-014",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-015",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-016",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-017",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-018",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-019",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-020",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-021",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B10-022",
+      "block": "B10",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-001",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-002",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-003",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-004",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-005",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B11-006",
+      "block": "B11",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B12-001",
+      "block": "B12",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B12-002",
+      "block": "B12",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B12-003",
+      "block": "B12",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B12-004",
+      "block": "B12",
+      "status": "PASS"
+    },
+    {
+      "caseId": "E2E-B12-005",
+      "block": "B12",
+      "status": "PASS"
+    }
+  ]
+}

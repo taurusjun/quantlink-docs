@@ -1,0 +1,555 @@
+# 按功能块回归映射（V2）
+# 用途：回答“改了 X 文件，要跑哪些回归”。
+# 读取方：tools/testing/regression_select.py（纯标准库解析，只支持本文件使用的 YAML 子集）
+#
+# 字段约定
+#   paths        源码/资源 glob（** 跨目录，* 不跨目录），命中即认为该功能块受影响
+#   cases        对应用例 ID（详见 docs/testing/04-e2e-test-plan.md）
+#   commands     按顺序执行的命令；kind=gradle|node|python|shell
+#                requires 列出必需环境变量；缺失时由 run-regression.sh 跳过并给出建库/起服务提示
+#   env          该功能块整体需要的环境变量
+#   destructive  true 表示会写订单/持仓/配置，必须显式 --yes
+#   needs_db     true 表示需要契约库（QF_IT_DB_URL）
+#
+# 约定：同一文件命中多个功能块时全部执行；命令去重后按 block 顺序执行。
+
+version: 1
+generated: "2026-11-11"
+owner: testing
+
+defaults:
+  gradle: "./gradlew"
+  contract_db: "qf_it_config_shadow"
+  prepare_contract_db: "tools/testing/prepare-contract-db.sh"
+
+blocks:
+  - id: B1
+    name: 行情链路（CTP Adapter -> Aeron md -> runner）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/MarketDataService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/MarketDataBroadcaster.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/ScopedQuoteService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/aeron/MarketDataAeronConsumer.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/MarketDataController.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/AeronMarketData.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/ControlPlaneMarketData.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/MarketDataProvider.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/MarketDataProviderFactory.java"
+      - "backend/sim-venue/src/main/java/com/quantlink/fin/venue/SimVenueMarketDataGenerator.java"
+      - "backend/shared/aeron/src/main/java/com/quantlink/fin/aeron/MarketDataCodec.java"
+      - "backend/shared/aeron/src/main/java/com/quantlink/fin/aeron/AeronStreams.java"
+      - "backend/sim-venue/src/main/java/**"
+      - "ctp-adapter/src/**"
+      - "ctp-adapter/tests/**"
+      - "ctp-adapter/include/**"
+    cases: [E2E-B1-001, E2E-B1-002, E2E-B1-003, E2E-B1-004, E2E-B1-005]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      CTP Adapter 是 190 上的独立进程，仓库内只有协议侧（Aeron 1001）、
+      price_sanitize.h 与 SimVenue md 发布器。断言“行情新鲜度”只允许看
+      /api/v1/system/status 的 marketAgeMs 与 /api/v1/market/status，
+      不得在控制面反算价格。
+      规则：适配器 / 采集端改动必须命中 B1，不能只落在 B7 或其它块。
+    commands:
+      - name: CTP 价格哨兵清洗（C++，无需 SDK）
+        kind: shell
+        run: "bash tools/testing/ctp-price-test.sh"
+        requires: []
+        destructive: false
+      - name: 行情编解码与 Aeron 回环
+        kind: gradle
+        run: "./gradlew :backend:shared:aeron:test --tests '*MarketDataCodecTest*' --tests '*AeronEchoTest*' --tests '*AeronUdpLoopbackTest*'"
+        requires: []
+        destructive: false
+      - name: runner 行情价格（CTP 哨兵）
+        kind: gradle
+        run: "./gradlew :backend:runtime-runner:test --tests '*AeronMarketDataPriceTest*'"
+        requires: []
+        destructive: false
+      - name: 控制面行情服务单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*MarketDataServiceTest*'"
+        requires: []
+        destructive: false
+      - name: 只读 API 价格不变量（ticks/quotes/pair_state）
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite market"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B2
+    name: 策略执行（pair / option_quoting / simple_hedging）
+    paths:
+      - "backend/runtime/src/main/java/com/quantlink/fin/runtime/strategy/**"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/PairSpreadRunner.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/StrategyFactory.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/RuntimeRunnerMain.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/PairConfigController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategySignalService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategySignalController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/PairDailyStateService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/PairStateController.java"
+    cases: [E2E-B2-001, E2E-B2-002, E2E-B2-003, E2E-B2-004, E2E-B2-005, E2E-B2-006]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      策略计算全部在 runner 线程内，控制面不参与。E2E 观察点在
+      strategy_positions / orders / strategy_alerts，不在控制面返回值。
+    commands:
+      - name: 三类策略单测
+        kind: gradle
+        run: "./gradlew :backend:runtime:test --tests '*FuturesPairStrategyTest*' --tests '*OptionQuotingStrategyTest*' --tests '*SimpleHedgingStrategyTest*'"
+        requires: []
+        destructive: false
+      - name: Pair runner 单测
+        kind: gradle
+        run: "./gradlew :backend:runtime-runner:test --tests '*PairSpreadRunnerTest*'"
+        requires: []
+        destructive: false
+      # SimVenue is the isolated test venue; the script deletes the strategy,
+      # fork, indicators and deployment it creates, so it can run in the normal
+      # regression instead of being gated behind --yes.
+      - name: Pair 策略 E2E（写策略/部署，自清理）
+        kind: node
+        run: "node tools/e2e/t030-pair.mjs"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B3
+    name: 本地风控（快照/fail-closed/限仓/价格偏离/节流）
+    paths:
+      - "backend/runtime/src/main/java/com/quantlink/fin/runtime/risk/**"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/AeronOrderGateway.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/CloseoutGuard.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/OrderGateway.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyRuntimeController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/AccountRiskLimitController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/AccountDailyLossGuard.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/ReconciliationGateService.java"
+    cases: [E2E-B3-001, E2E-B3-002, E2E-B3-003, E2E-B3-004, E2E-B3-005, E2E-B3-006, E2E-B3-007, E2E-B3-008, E2E-B3-009]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      本地风控 fail-closed 的两条关键日志（runner 侧，ILogger）：
+        "local risk snapshot is stale; loaded=... ageMs=... maxAgeMs=..."
+        "agent PnL is not available yet; OPEN is fail-closed"
+      断言应同时看：orders 不新增、strategy_alerts 有 NEW 记录、CLOSE 仍放行。
+    commands:
+      - name: 风控引擎单测
+        kind: gradle
+        run: "./gradlew :backend:runtime:test --tests '*RiskEngineTest*'"
+        requires: []
+        destructive: false
+      - name: 收盘守卫单测
+        kind: gradle
+        run: "./gradlew :backend:runtime-runner:test --tests '*CloseoutGuardTest*'"
+        requires: []
+        destructive: false
+      - name: 风控快照只读探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite risk"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B4
+    name: 下单与 ORS（Aeron order/cancel -> ORS -> CTP）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/aeron/ManualOrderPublisher.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/aeron/AeronOrderUpdateConsumer.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/TradingController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyOrderController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategyOrderService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategyOrderExpiryService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/OrderLifecycleGuard.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/execution/**"
+      - "backend/ors-core/src/main/java/**"
+      - "backend/sim-venue/src/main/java/**"
+      - "backend/runtime/src/main/java/com/quantlink/fin/runtime/oms/**"
+      - "backend/shared/sbe/src/main/java/com/quantlink/fin/sbe/**"
+    cases: [E2E-B4-001, E2E-B4-002, E2E-B4-003, E2E-B4-004, E2E-B4-005, E2E-B4-006, E2E-B4-007, E2E-B4-008]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      断言语义：orders.status 只能按 柜台回报 前进，FILLED 不得被旧 CANCELED 覆盖
+      （OrderLifecycleGuard 记录 STALE_UPDATE）。重复 Idempotency-Key 必须返回
+      同一 client_order_id 且 duplicate=true。
+    commands:
+      - name: OMS 单测
+        kind: gradle
+        run: "./gradlew :backend:runtime:test --tests '*OrderManagerTest*'"
+        requires: []
+        destructive: false
+      - name: ORS 核心单测
+        kind: gradle
+        run: "./gradlew :backend:ors-core:test"
+        requires: []
+        destructive: false
+      - name: 控制面下单/回报单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*ManualOrderPublisherTest*' --tests '*AeronOrderUpdateConsumerTest*'"
+        requires: []
+        destructive: false
+      - name: SBE 往返
+        kind: gradle
+        run: "./gradlew :backend:shared:sbe:test"
+        requires: []
+        destructive: false
+      - name: SimVenue 撮合 E2E（进程内）
+        kind: gradle
+        run: "./gradlew :backend:sim-exchange:test --tests '*P0AeronEndToEndTest*'"
+        requires: []
+        destructive: false
+
+  - id: B5
+    name: 持仓/盈亏/结算（position_ledger、PnL 快照、closeout）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/ledger/**"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategyPositionService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/PositionSnapshotService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/BookPositionService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/SettlementTask.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/StrategyCloseoutScheduler.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/PortfolioSnapshotTask.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyPnlController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/LedgerController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/SettlementController.java"
+      - "backend/reconciliation/src/main/java/**"
+      - "tools/db/migrate-t053-position-ledger.sql"
+    cases: [E2E-B5-001, E2E-B5-002, E2E-B5-003, E2E-B5-004, E2E-B5-005, E2E-B5-006]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      positions = 柜台快照唯一权威；position_ledger = 成交归属推导。
+      两者差异必须通过 position_reconciliation 视图暴露，禁止自动配平。
+    commands:
+      - name: 台账/结算/持仓单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*ExecutionLedgerServiceTest*' --tests '*SettlementServiceTest*' --tests '*StrategyPositionServiceTest*'"
+        requires: []
+        destructive: false
+      - name: 组合单测
+        kind: gradle
+        run: "./gradlew :backend:runtime:test --tests '*PortfolioTest*'"
+        requires: []
+        destructive: false
+      - name: 对账单测
+        kind: gradle
+        run: "./gradlew :backend:reconciliation:test"
+        requires: []
+        destructive: false
+      - name: schema 约束（Testcontainers，需 Docker）
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*SchemaIntegrationTest*'"
+        requires: []
+        destructive: false
+
+  - id: B6
+    name: 策略中心（CRUD/版本/fork/部署/激活/停止/回滚）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyCenterController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyDeploymentController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/AgentStrategyBindingController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/EmergencyController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/ManualBookController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/AccountConfigController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/AccountAccessService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/mapper/StrategyCenterMapper.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/mapper/StrategyDeploymentMapper.java"
+      - "backend/control-plane/src/main/resources/mapper/StrategyCenterMapper.xml"
+      - "backend/control-plane/src/main/resources/mapper/StrategyDeploymentMapper.xml"
+      - "web/src/pages/StrategyCenter.tsx"
+      - "web/src/pages/StrategyWizard.tsx"
+    cases: [E2E-B6-001, E2E-B6-002, E2E-B6-003, E2E-B6-004, E2E-B6-005, E2E-B6-006, E2E-B6-007, E2E-B6-008, E2E-B6-009, E2E-B6-010, E2E-B6-011, E2E-B6-012, E2E-B6-013, E2E-B6-014, E2E-B6-016, E2E-B6-017, E2E-B6-018]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      删除保护、绑定上下文、carry 确认是三条硬约束：
+        delete: ACTIVE / running / open position / history -> 409（带中文原因）
+        deploy: 换 agent/account/counterparty/ors -> 409 STRATEGY_BOUND_TO_CONTEXT
+        deploy: 有持仓改版本且 carry!=true -> 409 POSITION_CARRY_CONFIRMATION_REQUIRED
+    commands:
+      - name: 策略中心写→读契约（需要契约库）
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*StrategyVersionContractIT*'"
+        requires: [QF_IT_DB_URL]
+        destructive: false
+      - name: 配置合并/校验单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*StrategyConfigMergeTest*' --tests '*StrategyConfigValidatorTest*'"
+        requires: []
+        destructive: false
+      - name: 策略中心只读 API 探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite strategy"
+        requires: [QF_BASE_URL]
+        destructive: false
+      - name: 策略中心 UI smoke（只读）
+        kind: node
+        run: "node tools/e2e/readonly-smoke.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 策略中心写路径 E2E（建策略/部署/fork，自清理）
+        kind: node
+        run: "node tools/e2e/t030-pair.mjs"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B7
+    name: 指标（Agent 计算 -> 2012 -> 控制面入库 -> 时间戳）
+    paths:
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/IndicatorPublisher.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/StrategyPnlPublisher.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/IndicatorEngine.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/IndicatorHistoryTask.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/IndicatorController.java"
+      - "backend/control-plane/src/main/resources/mapper/IndicatorMapper.xml"
+      - "backend/shared/sbe/src/main/java/com/quantlink/fin/sbe/IndicatorValueEncoder.java"
+      - "backend/shared/sbe/src/main/java/com/quantlink/fin/sbe/IndicatorValueDecoder.java"
+    cases: [E2E-B7-001, E2E-B7-002, E2E-B7-003, E2E-B7-004, E2E-B7-005, E2E-B7-006, E2E-B7-007]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      本块此前完全没有自动化。2012 是 Agent -> 控制面单向流；
+      控制面只允许“存 + 转发”，不得自己算指标。
+      断言点：value_ts 非空且递增、status in OK/WARN/CRIT/NO_DATA、value_version 递增。
+      E2E-B7-005/006/007 覆盖 2026-11-11 实际发生的两类问题：
+      指标串柜台（副本复用源策略、配对指标用全局 tick）与腿停更仍显示 OK。
+    commands:
+      - name: 指标编解码单测
+        kind: gradle
+        run: "./gradlew :backend:shared:sbe:test --tests '*SbeRoundTripTest*' --tests '*SbeV2RoundTripTest*'"
+        requires: []
+        destructive: false
+      - name: 指标只读 API 探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite indicators"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B8
+    name: 告警与消息（生成/去重/ack/跨日）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyAlertController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/SystemAlertController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/mapper/StrategyAlertMapper.java"
+      - "backend/control-plane/src/main/resources/mapper/StrategyAlertMapper.xml"
+      - "backend/telemetry/src/main/java/com/quantlink/fin/telemetry/AlertEngine.java"
+      - "backend/telemetry/src/main/java/com/quantlink/fin/telemetry/AsyncTelemetrySink.java"
+      - "web/src/pages/Alerts.tsx"
+      - "web/src/pages/SystemAlerts.tsx"
+    cases: [E2E-B8-001, E2E-B8-002, E2E-B8-003, E2E-B8-004, E2E-B8-005, E2E-B8-006, E2E-B8-007, E2E-B8-008]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      目标契约（DEF-02 修复后）：去重键 = (strategy_id, instrument_id, side, reason_code)，
+      reason_code 必须稳定（如 RISK_SNAPSHOT_STALE），动态数值只进 message。
+      现状：runner 把 ageMs 写进 reason，同一故障每 tick 生成新告警；
+      2026-11-11 在 190 观测到同一键 50+ 条 NEW（更早的 1881 条由主对话核验）。
+    commands:
+      - name: 告警引擎单测
+        kind: gradle
+        run: "./gradlew :backend:telemetry:test --tests '*AlertEngineTest*' --tests '*AsyncTelemetrySinkTest*'"
+        requires: []
+        destructive: false
+      - name: 告警只读 API 探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite alerts"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B9
+    name: 权限与审计（账户范围 / SHADOW vs LIVE / audit_log）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/config/SecurityConfig.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/config/ApprovalGuard.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/config/AgentTokenVerifier.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/config/ApiRateLimitFilter.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/ChangeApprovalController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/AccountAccessService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/mapper/AuditMapper.java"
+      - "backend/control-plane/src/main/resources/mapper/AuditMapper.xml"
+      - "web/src/pages/Approvals.tsx"
+      - "web/src/pages/Audit.tsx"
+    cases: [E2E-B9-001, E2E-B9-002, E2E-B9-003, E2E-B9-004]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      LIVE 环境所有高风险动作（DEPLOY_ACTIVATE/DEPLOY_ROLLBACK/MANUAL_ORDER）
+      必须带 X-Approval-Id：缺失 428，非他人审批 412。SHADOW 下 ApprovalGuard 自动放行，
+      所以 LIVE 分支只能靠单测/编译期断言，不能靠 190 实测。
+    commands:
+      - name: Agent token 校验单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*AgentTokenVerifierTest*'"
+        requires: []
+        destructive: false
+      - name: 权限/审计只读探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite access"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B10
+    name: Web UI（策略中心/告警/仪表盘/手工下单）
+    paths:
+      - "web/src/**"
+      - "web/index.html"
+      - "tools/e2e/**"
+    cases: [E2E-B10-001, E2E-B10-002, E2E-B10-003, E2E-B10-004, E2E-B10-005, E2E-B10-007, E2E-B10-008, E2E-B10-009, E2E-B10-010, E2E-B10-011, E2E-B10-013, E2E-B10-014, E2E-B10-015, E2E-B10-016, E2E-B10-017, E2E-B10-018, E2E-B10-019, E2E-B10-020, E2E-B10-021, E2E-B10-022]
+    env: [QF_WEB_URL]
+    destructive: false
+    needs_db: false
+    notes: |
+      所有 Playwright 脚本默认指向 https://101.43.54.190:8443（SHADOW）。
+      只读 smoke 不含写操作；t030-* 会建策略/部署，属于破坏性。
+    commands:
+      - name: 全站只读 smoke
+        kind: node
+        run: "node tools/e2e/readonly-smoke.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 策略中心只读 smoke
+        kind: node
+        run: "node tools/e2e/t030-smoke.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 手工单预览 smoke
+        kind: node
+        run: "node tools/e2e/t030-manual-preview.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 导航 5 组 / F2-F12 / kiosk
+        kind: node
+        run: "node tools/e2e/shortcuts-smoke.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 驾驶舱可见性（runState/柜台/新鲜度/未归属/PnL）
+        kind: node
+        run: "node tools/e2e/trader-cockpit.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 订单 blotter（默认未完成/批量/详情）
+        kind: node
+        run: "node tools/e2e/orders-blotter.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 策略编辑走引导页（无手动更新版本）
+        kind: node
+        run: "node tools/e2e/version-safety.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 部署中策略编辑（自动升版 + 同部署重启，自清理）
+        kind: node
+        run: "node tools/e2e/edit-deployed.mjs"
+        requires: [QF_WEB_URL, QF_BASE_URL]
+        destructive: false
+      - name: 手工单（合约搜索/tick/提交门禁）
+        kind: node
+        run: "node tools/e2e/manual-tick.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 告警聚合（级别/次数/静默/最后时间）
+        kind: node
+        run: "node tools/e2e/alerts-aggregation.mjs"
+        requires: [QF_WEB_URL]
+        destructive: false
+      - name: 视觉布局不变量（1920/1440/1280/900）
+        kind: shell
+        run: "npx playwright test tests/visual/specs/w4-layout.spec.ts"
+        requires: [QF_WEB_URL]
+        destructive: false
+      # Same policy: unique ids, UI-created forks are removed in finally.
+      - name: 生命周期写路径 E2E（建策略/版本/停止/fork，自清理）
+        kind: node
+        run: "node tools/e2e/t030-lifecycle.mjs"
+        requires: [QF_BASE_URL, QF_WEB_URL]
+        destructive: false
+
+  - id: B11
+    name: 运维（market watch / 归档回放 / 定时任务 / 备份 / 健康检查）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/ScheduledJobController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/ScheduledJobService.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/market/RetentionTask.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/SystemStatusController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/VenueReconciliationController.java"
+      - "backend/replay-gateway/src/main/java/**"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/QueryScheduleController.java"
+      - "tools/db/backup.sh"
+      - "tools/db/retention.sql"
+    cases: [E2E-B11-001, E2E-B11-002, E2E-B11-003, E2E-B11-004, E2E-B11-005, E2E-B11-006]
+    env: []
+    destructive: false
+    needs_db: false
+    notes: |
+      backup.sh 需要 PGPASSWORD 与目标库名，属于运维手工步骤，自动化只做
+      “--dry-run/参数校验”，不真正 dump 190。
+    commands:
+      - name: 保留任务单测
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*RetentionTaskTest*'"
+        requires: []
+        destructive: false
+      - name: 回放网关单测
+        kind: gradle
+        run: "./gradlew :backend:replay-gateway:test"
+        requires: []
+        destructive: false
+      - name: 健康与定时任务只读探测
+        kind: python
+        run: "python3 tools/testing/checks/api_readonly_check.py --suite ops"
+        requires: [QF_BASE_URL]
+        destructive: false
+
+  - id: B12
+    name: 配置契约（版本快照写入 -> runner 读取 -> 回滚）
+    paths:
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyConfigMerge.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyConfigValidator.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/CommonConfigStore.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/StrategyCommonConfigController.java"
+      - "backend/control-plane/src/main/java/com/quantlink/fin/control/api/CommonConfigDefaults.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/DeploymentConfigLoader.java"
+      - "backend/runtime-runner/src/main/java/com/quantlink/fin/runner/RunnerConfig.java"
+      - "backend/shared/config/src/main/java/**"
+      - "tools/db/migrate-t055-version-config-snapshot.sql"
+      - "tools/testing/prepare-contract-db.sh"
+    cases: [E2E-B12-001, E2E-B12-002, E2E-B12-003, E2E-B12-004, E2E-B12-005]
+    env: [QF_IT_DB_URL, QF_IT_DB_USER, QF_IT_DB_PASSWORD]
+    destructive: false
+    needs_db: true
+    notes: |
+      写→读契约门禁（P0）：同一份数据有写入入口和读取方时必须一条测试过两端。
+      prepare-contract-db.sh 只应用 t037/t046/t050/t051/t053/t054/t055，
+      改动其它迁移（如 t038/t052）时需要同步扩展该脚本，否则契约库缺表。
+    commands:
+      - name: 写→读契约（控制面侧）
+        kind: gradle
+        run: "./gradlew :backend:control-plane:test --tests '*StrategyVersionContractIT*'"
+        requires: [QF_IT_DB_URL, QF_IT_DB_USER]
+        destructive: false
+      - name: 写→读契约（runner 侧）
+        kind: gradle
+        run: "./gradlew :backend:runtime-runner:test --tests '*DeploymentVersionConfigIT*'"
+        requires: [QF_IT_DB_URL, QF_IT_DB_USER]
+        destructive: false
+      - name: 配置加载单测
+        kind: gradle
+        run: "./gradlew :backend:runtime-runner:test --tests '*RunnerConfigTest*'"
+        requires: []
+        destructive: false
+      - name: 配置加载器单测（shared/config）
+        kind: gradle
+        run: "./gradlew :backend:shared:config:test --tests '*ConfigLoaderTest*'"
+        requires: []
+        destructive: false

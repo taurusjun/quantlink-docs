@@ -1,0 +1,33 @@
+== ORS inventory ==
+          ors_id          |  venue_id  |  account_id  | adapter_kind | status  | md_channel | md_stream | order_channel | order_stream | cancel_channel | cancel_stream | update_channel | update_stream | trade_channel | trade_stream | position_channel | position_stream 
+--------------------------+------------+--------------+--------------+---------+------------+-----------+---------------+--------------+----------------+---------------+----------------+---------------+---------------+--------------+------------------+-----------------
+ ors-shengli-test-shengli | SIMSHENGLI | TEST-SHENGLI | CTP          | STOPPED | aeron:ipc  |      1110 | aeron:ipc     |         2110 | aeron:ipc      |          2111 | aeron:ipc      |          2112 | aeron:ipc     |         2113 | aeron:ipc        |            2013
+ ors-simnow-test-001      | SIMNOW     | TEST-001     | CTP          | RUNNING | aeron:ipc  |      1100 | aeron:ipc     |         2100 | aeron:ipc      |          2101 | aeron:ipc      |          2102 | aeron:ipc     |         2103 | aeron:ipc        |            2006
+ ors-simvenue-001         | SIMVENUE   | SIMVENUE-001 | SIM          | RUNNING | aeron:ipc  |      1001 | aeron:ipc     |         3140 | aeron:ipc      |          3141 | aeron:ipc      |          3142 | aeron:ipc     |         3143 | aeron:ipc        |            2014
+(3 rows)
+
+== venue/account mismatches (must be 0 rows) ==
+ ors_id | ors_venue | account_venue 
+--------+-----------+---------------
+(0 rows)
+
+== execution writer conflicts (must be 0 rows) ==
+ role | channel | stream | writers 
+------+---------+--------+---------
+(0 rows)
+
+== md writer conflicts (must be 0 rows) ==
+ md_channel | md_stream | writers 
+------------+-----------+---------
+(0 rows)
+
+== running ORS without position feed (review; SimVenue must be 2014) ==
+ ors_id | adapter_kind | position_stream 
+--------+--------------+-----------------
+(0 rows)
+
+== position writer conflicts (must be 0 rows after split) ==
+ position_channel | position_stream | writers 
+------------------+-----------------+---------
+(0 rows)
+

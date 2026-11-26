@@ -1,0 +1,8 @@
+run=2026-11-13-clean
+indicator-engine ActiveEnterTimestamp=Fri 2026-11-13 00:56:41 CST
+indicator-soak ActiveEnterTimestamp=Fri 2026-11-13 00:56:57 CST
+target-24h=2026-11-14 00:56:57 CST
+first values:
+[indicator-engine] values={ik1_m2h8qacq03g6cdec4gn4qx5a3t=Value[... value=835.4422157434403, asOf=1794502603500, seq=4, tokenEpoch=2, fencingToken=5]}
+30s values:
+[indicator-engine] values={ik1_m2h8qacq03g6cdec4gn4qx5a3t=Value[... value=835.2519667768706, asOf=1794502633500, seq=49, tokenEpoch=2, fencingToken=5]}
