@@ -89,7 +89,7 @@ ctest --test-dir build -R ctp_contract_codec --output-on-failure
 Copy from:
 
 ```text
-/Volumes/DevDisk/146/3/dalong/infrastructure/China
+/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China
 ```
 
 Do not import `Sgit*` sources or the old `mdshmwriter` path.

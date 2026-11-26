@@ -10,7 +10,7 @@
 
 ```text
 公司 ORS 原始代码
-/Volumes/DevDisk/146/3/dalong/infrastructure/China
+/Users/wangjun/Documents/my/fin/fromCompany/gitrepo/ors/China
 
 quantlink-trading ORS 分支
 /Users/wangjun/PG/RD/quantlink-trading/ors/China
@@ -101,7 +101,7 @@ Aeron 传输层
 ## 5. 结论
 
 ```text
-主基线：公司 ORS 原始代码
+主基线：公司 ORS 原始代码（`fromCompany/gitrepo/ors/China`）
 修复来源：quantlink-trading/ors/China（逐项 cherry-pick）
 传输参考：当前 quantlink-ors 的 Aeron 实现
 ```
