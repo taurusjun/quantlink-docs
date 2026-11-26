@@ -152,25 +152,44 @@ accountId
 
 ---
 
-## 5. OrderID
+## 5. OrderID（参考 tb_origin）
 
-沿用公司 Connector 的唯一编号语义：
+按 `tb_origin` Connector 的编号语义：
 
 ```text
-一个 OrsClient 对应一个账户/ORS
-OrderID 在账户范围内唯一
-FastTrade 策略层仍用 OrderIDStrategyMap 归属策略
-SDK 不因重连重新发同一个 OrderID 的请求，除非调用方明确重试
+ORDERID_RANGE = 1_000_000
+OrderID = clientId * ORDERID_RANGE + orderCount++
 ```
 
-实现建议：
+规则：
+
+- `clientId` 是某个 ORS 账户下的客户端编号
+- `orderCount` 是该客户端的递增序号
+- `clientId` 必须唯一，不能只用进程内计数器
+- `orderCount` 到达 `ORDERID_RANGE` 时必须换新的 `clientId`，不能回绕复用
+- OrderID 是请求/回报关联键，不是订单状态
+- FastTrade 的 `OrderIDStrategyMap` 继续按 OrderID 归属策略
+
+`tb_origin` 的 `clientId` 来自 Connector 的 ClientStore。v4 没有 SHM ClientStore，所以需要等价的 Aeron 注册机制：
+
+```text
+OrsClient 启动
+  -> ClientRegister(instanceId)
+  -> ORS 返回 clientId
+  -> SDK 用 clientId * 1_000_000 + orderCount
+```
+
+不能简单地固定 `clientId=0` 并在进程重启后从 0 重新计数；否则会与 ORS 里仍存活的订单发生 OrderID 冲突。  
+ClientRegister 需要加入 contract v4 的控制消息；具体字段在 contract 实现阶段补。
+
+SDK 侧：
 
 ```java
-AtomicLong orderId
+AtomicInteger orderCount
+int clientId
 ```
 
-从配置的起始值或启动时间片分配；具体规则在实现阶段固定。  
-OrderID 不替代 ORS 的订单状态，只是请求/回报关联键。
+`clientId` 是启动注册结果，不写死在配置里。
 
 ---
 
@@ -235,14 +254,24 @@ OrsConfig（账户级，不按交易所分 channel）
 
 ---
 
-## 9. SIM 与 LIVE
+## 9. SIM 与 LIVE（参考 tb_origin）
+
+按 `tb_origin` 的方式，由上层决定运行模式：
+
+```text
+FastTrade --Sim  -> ModeType_Sim
+FastTrade --Live -> ModeType_Live
+```
+
+SDK 不做 SIM/LIVE 模式判断，只接收目标 Aeron 配置：
 
 ```text
 LIVE: FastTrade -> OrsClient -> Aeron -> ORS v4 -> CTP
 SIM:  FastTrade -> OrsClient -> Aeron -> SimVenue v4
 ```
 
-SimVenue 必须实现同一 v4 语义，否则 SDK 不区分 SIM/LIVE 会产生两套行为。
+FastTrade 在启动参数/配置中选择目标；SDK 只负责连接对应 ORS/SimVenue。  
+SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两套行为。
 
 ---
 
@@ -277,10 +306,17 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 不区分 SIM/LIVE 会产生�
 
 ---
 
-## 12. 待确认
+## 12. 已确认
 
-1. SDK 独立仓库还是 `quantlink-fasttrade` 子模块；建议独立仓库。
-2. `OrsListener` 用回调接口还是 `CompletableFuture`；订单主链路建议回调。
-3. OrderID 起始值和跨重启规则。
-4. 是否同时发布 Java 版 MD/account 监听 API。
-5. FastTrade 的 SIM/LIVE 切换配置由 SDK 还是上层决定。
+1. SDK 使用独立仓库 `quantlink-ors-sdk`。
+2. 使用 Java 回调接口，不使用 `CompletableFuture` 作为订单主链路。
+3. OrderID 参考 `tb_origin`：`clientId * 1_000_000 + orderCount`。
+4. 同时提供 Java 版行情和账户监听 API。
+5. SIM/LIVE 由 FastTrade 上层决定，SDK 只连接目标 ORS/SimVenue。
+
+## 13. 待确认
+
+1. `ClientRegister` 的 Aeron 控制消息和 ORS 侧实现。
+2. `clientId` 的分配/释放规则，以及跨重启复用边界。
+3. OrderID 计数在交易日切换时是否重置；参考 tb_origin 的进程生命周期。
+4. ClientRegister 和 contract v4 的最终消息布局。
