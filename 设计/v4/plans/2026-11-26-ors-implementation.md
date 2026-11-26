@@ -96,7 +96,7 @@ Do not import `Sgit*` sources or the old `mdshmwriter` path.
 
 - [ ] **Step 2: Vendor only required hftbase pieces**
 
-Keep `orderresponse.h`, `marketupdateNew.h`, RMS implementation/checks, time/config/lock utilities needed by the core. Do not vendor SHM manager.
+Keep only `orderresponse.h`, `marketupdateNew.h`, RMS implementation/checks, and the minimum temporary utilities needed to compile Task 2. Do not vendor the SHM manager. Task 2B removes the remaining illuminati config/lock/time/log utilities.
 
 - [ ] **Step 3: Build the baseline**
 
@@ -133,6 +133,61 @@ cmake --build build -j4 --target ors_core
 ```
 
 Expected: company ORS core compiles without file-backed state, with SHM symbols unresolved or stubbed only where transport will replace them.
+
+---
+
+### Task 2B: Simplify base libraries and unify logging
+
+**Files:**
+- Create: `ctp/include/ors/log.h`
+- Create: `ctp/src/log.cpp`
+- Create: `ctp/tests/LogFacadeTest.cpp`
+- Modify: `ctp/core/ORSServer.cpp`, `ctp/core/MdSpi.cpp`, `ctp/core/main.cpp`
+- Modify: `ctp/vendor/hftbase/` and `ctp/CMakeLists.txt`
+- Reference: `005-ors-code-cleanup.md`
+
+**Interfaces:**
+- `ors::log::info|warn|error(event, fields)`
+- `ors::log::metrics(fields)`
+- Internally may use `ors_base::logEvent` / spdlog; business code must not call spdlog, `ILOG`, `std::cerr`, or `StatsCollector` directly.
+
+- [ ] **Step 1: RED**
+
+Add `LogFacadeTest.cpp` asserting:
+- one event produces one JSONL line
+- required fields `ts`, `level`, `event` are present
+- credentials are not emitted
+- no `[ctp]` prefix outside JSON
+
+- [ ] **Step 2: Replace illuminati infrastructure**
+
+Remove or replace with std/`ors_base`:
+- `Configfile` -> `ors_base::ConfigFile`
+- `CasLock` -> `std::mutex` / `std::atomic`
+- `ITime_ClockRT` -> `std::chrono`
+- `StatsCollector` -> counters + 60s `metrics`
+- `ILOG` -> `ors::log` facade
+- `ProcessSettings` -> `std::filesystem` / config
+
+Do not rewrite RMS or order-state logic. Keep `orderresponse.h`, `marketupdateNew.h`, RMS checks, and tinyxml2 where required.
+
+- [ ] **Step 3: Replace logging calls**
+
+- Define the event dictionary from `005-ors-code-cleanup.md`
+- Replace business `std::cout` / `std::cerr` with the facade
+- Delete `[ctp]` text logs
+- Hot paths use counters, not per-tick logs
+- Keep human-readable output only for `--help`, `--version`, config summary, and smoke tests
+
+- [ ] **Step 4: GREEN**
+
+```bash
+cmake --build build -j4
+ctest --test-dir build -R 'ctp_log_facade' --output-on-failure
+rg 'ILOG|StatsCollector|std::cerr' ctp/core ctp/src ctp/include
+```
+
+Expected: no production `ILOG`, `StatsCollector`, or `std::cerr`; JSONL parses; no per-tick MD log.
 
 ---
 
