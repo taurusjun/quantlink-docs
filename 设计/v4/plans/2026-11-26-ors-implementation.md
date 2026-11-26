@@ -302,7 +302,7 @@ ReqQryInstrument
 Trader/MD 使用 `OrsConfig` 中分开的 flow 目录。这里纳入 `quantlink-trading` 的生产修复：
 
 ```text
-登录重试 + 退避；开盘前检查
+登录重试 + 退避；开盘前检查，重试由定时器/主循环调度，不在 CTP 回调 usleep
 instrument query 限流，不允许背靠背查询
 position query 整表替换；空结果清空
 4040 生产/评测模式由配置驱动
@@ -689,9 +689,11 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 
 **接口：**
 - `AccountSnapshot mapAccountSnapshot(const CThostFtdcTradingAccountField&, uint64_t requestId, const OrsConfig&);`
+- `PositionRow mapPositionRow(const CThostFtdcInvestorPositionField&);`
+- `std::vector<PositionRow> mergePositionRows(std::vector<PositionRow> rows);`
 - `bool ORSServer::QueryAccount(const AccountQueryRequest&);`
 - `bool ORSServer::acceptAccountResponse(int ctpRequestId, const CThostFtdcTradingAccountField* row, const CThostFtdcRspInfoField* error);`
-- `bool QueryCadence::tryAcquire(std::chrono::steady_clock::time_point now);`
+- `class QueryCadence { bool tryAcquire(std::chrono::steady_clock::time_point now); };`
 
 **查询代码来源：**
 - `AccountQuery` / `AccountSnapshot` 字段：contract 1.0.0，不使用旧 contract。
@@ -699,6 +701,8 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 - 查询触发、回调顺序、限流、重试：参考 `quantlink-trading/ors/China/src/ORSServer.cpp` 的 `ReqQryInstrument`、`ReqQryInvestorPosition`、`ReqQryTradingAccount` 和对应 `OnRsp...`；只取查询逻辑，不复制 `writePositionToFile` / `updatePositionFromFile`。
 - 公司 ORS `fromCompany/.../China` 的 `ReqQryPosition()` / `ReqQryAccount()` 是禁用或直接 `return`，持仓来自 `position.csv`，不能作为查询代码来源。
 - `ORSServer::QueryAccount`、`acceptAccountResponse`、`QueryCadence`、requestId 关联是 v4 新增接线代码，不是从公司 ORS 原样复制。
+- 查询采用生产 ORS 内联模式：`ReqQry...` / `OnRspQry...` 都在 `ORSServer`，不引入 `QueryService` / `QueryCoordinator`。
+- 生产 ORS 的 `usleep` 重试和查询失败降级 READY 不进入 v4；重试由定时器/主循环调度，失败保持 FAILED。
 
 - [ ] **步骤 1：先写失败的 account 测试**
 
@@ -721,7 +725,7 @@ ctest --test-dir build -R 'ctp_account_query|ctp_query_cadence' --output-on-fail
 
 - [ ] **步骤 3：实现映射、节流和 ORSServer 查询路径**
 
-把 `git show b017507:ctp/src/CtpQueryService.cpp` 中的 `mapAccountSnapshot`、`mapPositionSnapshot`、`mergePositions` 字段映射复制到 `ctp/query/QueryMapping.cpp`；不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
+把 `git show b017507:ctp/src/CtpQueryService.cpp` 中的 `mapAccountSnapshot`、`mapPositionRow`、`mergePositionRows` 字段映射复制到 `ctp/query/QueryMapping.cpp`；不要复制旧 `CtpQueryService` 的 service 或 session 状态机。
 
 不要把 account query 做成独立 `AccountQueryService`。查询入口、`requestIdByCtpRequestId` 和响应回调都放在 `ORSServer`，与公司 ORS 的 `ReqQry...`/`OnRspQry...` 结构一致。
 
@@ -734,7 +738,7 @@ CloseProfit, PositionProfit, Deposit, Withdraw
 
 `requestId` 是 SDK 查询关联键；`tradingDay` 来自 CTP 行。`DBL_MAX` 和 NaN 映射为 `0.0`。
 
-节流为 1000 ms。间隔内第二次查询返回拒绝结果，不能静默丢弃。
+`QueryCadence` 只负责 account query 的 1000 ms 节流；间隔内第二次查询返回拒绝结果，不能静默丢弃。它不处理 requestId、超时、重试或回调顺序。position/instrument 启动查询使用启动屏障和退避重试，不使用这个节流器。
 
 - [ ] **步骤 4：接入 CTP 回调**
 
@@ -969,7 +973,7 @@ git commit -m "test(ors): record live gate"
 - **不做 SHM 兼容层：** `OrsTransport` 是新 seam；不要把 `ShmMgr` 藏在适配器后面。
 - **不做文件回退：** 持仓/合约状态只来自 CTP 查询；查询失败就是启动失败，不能读旧 CSV。
 - **Contract 代码生成在外部：** ORS 只使用 contract 仓库生成的头文件，不复制或重写 SBE schema。
-- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping` 和 `QueryCadence`。
+- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping`（纯字段映射）和 `QueryCadence`（account query 节流）。
 - **只新增 account query：** position/instrument 查询是初始化语义，不是新订单状态机。
 - **原地重写：** 所有新代码直接进入 `ctp/`，不建 `ctp/v4`，不保留 v3/v4 双轨。
 
