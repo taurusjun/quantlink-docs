@@ -116,6 +116,16 @@ Use CTP queries from `quantlink-trading/ors/China` as reference, but do not copy
 - `ReqQryInvestorPosition`
 - `ReqQryTradingAccount`
 
+Include the production fixes listed in `003-ors-v4.md` §4.5:
+- 4040 production mode
+- MD/Trader flow directory split
+- login retry/backoff
+- MD resubscribe
+- MD level reset
+- instrument/position query rate limit and full-table replacement
+
+Do not import StrategyID, split-order changes, CFFEX/ZCE behavior changes, SHM fixes, or file-backed state.
+
 - [ ] **Step 5: Verify baseline**
 
 ```bash
