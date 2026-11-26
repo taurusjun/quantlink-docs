@@ -3,6 +3,7 @@
 - 状态：DRAFT（2026-11-26）
 - 当前架构：`001-v4-architecture.md`
 - Contract v4 方案：`002-contract-v4.md`
+- ORS v4 实施方案：`003-ors-v4.md`
 - ORS 基线比较：`ref/001-ors-baseline-comparison.md`
 - 历史：`../v3/` 保留，不再作为实现基线
 
