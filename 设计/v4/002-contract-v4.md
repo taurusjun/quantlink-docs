@@ -25,36 +25,45 @@ v4 contract 的职责只有：
 
 ## 2. 版本与仓库策略
 
-推荐：
+**v4 是唯一 active contract。SimVenue、FastTrade、ORS、SDK 全部在同一版本迁移。**
 
 ```text
 quantlink-venue-contract/
   abi/sbe/
-    quantlink-fin-sbe.xml          # v0.2.0，继续给 SimVenue/FastTrade
-    quantlink-ors-v4-sbe.xml       # v4.0.0，给 ORS/SDK
+    quantlink-fin-sbe.xml          # v4.0.0，唯一 active schema
 ```
 
-生成代码使用不同包名：
+生成代码使用统一包名：
 
 ```text
-v3: com.quantlink.contract.sbe
-v4: com.quantlink.contract.ors.v4
+com.quantlink.contract.v4
 ```
 
-发布两个 artifact：
+发布 artifact：
 
 ```text
-com.quantlink.contract:venue-contract:0.2.0
-com.quantlink.contract:ors-contract:4.0.0
+com.quantlink.contract:venue-contract:4.0.0
 ```
 
-原因：
+规则：
 
-- SimVenue/FastTrade 当前仍依赖 v3，不应被 ORS 重写连带破坏
-- v4 和 v3 的订单语义不同，不能混在同一个 canonical schema
-- 不写兼容 shim；消费方按 artifact 版本固定
+- v3 schema 冻结为历史版本，不再新增字段、不再作为 active 依赖
+- 不保留 v3/v4 双 canonical，不做兼容 shim
+- contract 4.0.0 的升级必须和 SimVenue、FastTrade、ORS、SDK 同批发布
+- 版本矩阵锁定 contract 4.0.0 与各仓 SHA，禁止 v3 consumer 混入 v4 release
 
-如果后续 SimVenue/FastTrade 也要迁 v4，再单独做迁移，不在本次 contract 重写里顺手改。
+迁移顺序：
+
+```text
+1. 定义 v4 schema + 生成代码
+2. ORS/SDK 接 v4
+3. SimVenue 接 v4
+4. FastTrade 接 v4
+5. 删除 active 构建中的 v3 依赖
+6. 版本矩阵切到 contract 4.0.0
+```
+
+SimVenue 和 FastTrade 不是“以后再说”的消费方，而是本次 contract 重写的必改项。
 
 ---
 
@@ -288,15 +297,49 @@ stream 5: SESSION      ORS -> SDK
 - 不在 contract 中重新实现订单状态机
 - 不把 `CANCEL_ORDER_REJECT` 降级成普通订单拒绝
 - 不为了兼容 v3 在 v4 canonical schema 里保留两套订单字段
-- 不把 SimVenue/FastTrade 的 v3 迁移混进本次 ORS contract 工作
+- 不保留 v3/v4 双 active contract
+- 不让 SimVenue/FastTrade 继续以 v3 进入 v4 release
 
 ---
 
-## 11. 待确认
+## 11. SimVenue / FastTrade 迁移
 
-1. v4 是否只给 ORS/SDK，v3 继续给 SimVenue/FastTrade，还是两边一起迁。
-2. `OrsResponse.ExchangeOrderId` 是否严格保留公司 `double` 类型。
-3. `StrategyID` 是否进入 Aeron envelope，还是完全不进 v4。
-4. account query 字段是否按当前 `AccountSnapshot` 全集。
-5. MarketUpdate 是否由 ORS 发布，以及 TradeBot 实际需要哪些字段。
-6. 持仓查询是否也进 v4，还是保持公司 ORS 内部行为。
+v4 不是 ORS 专用 schema；SimVenue 和 FastTrade 必须使用同一份 v4 消息语义。
+
+### SimVenue
+
+- 用 v4 `OrsRequest` / `OrsResponse` 模拟公司 ORS 的订单和撤单行为
+- 行情使用 v4 `MarketUpdate`
+- 账户/持仓使用 v4 `AccountSnapshot` / position 消息
+- 必须覆盖 `CANCEL_ORDER_REJECT`、终态、未知撤单等公司行为
+- 不能继续发出 v3 `OrderUpdate` 状态机
+
+### FastTrade
+
+- AccessSDK / TradeBot 订单接入改为 v4 `OrsRequest` / `OrsResponse`
+- 删除 v3 `OrderRequest/OrderUpdate/Trade` 依赖
+- 策略层仍可使用自己的策略订单视图，但不能把 v3 contract 状态当 ORS 权威
+- 与 SimVenue 联调使用同一 v4 artifact
+
+### 发布门槛
+
+```text
+contract 4.0.0
+  + ORS v4
+  + SDK v4
+  + SimVenue v4
+  + FastTrade v4
+```
+
+任一消费方仍依赖 v3，不得发布 v4 版本矩阵。
+
+---
+
+## 12. 待确认
+
+1. `OrsResponse.ExchangeOrderId` 是否严格保留公司 `double` 类型。
+2. `StrategyID` 是否进入 Aeron envelope，还是完全不进 v4。
+3. account query 字段是否按当前 `AccountSnapshot` 全集。
+4. MarketUpdate 是否由 ORS 发布，以及 TradeBot 实际需要哪些字段。
+5. 持仓查询是否也进 v4，还是保持公司 ORS 内部行为。
+6. SimVenue/FastTrade 的 v4 切换顺序和联调窗口。
