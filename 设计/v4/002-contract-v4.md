@@ -75,7 +75,9 @@ SimVenue 和 FastTrade 不是“以后再说”的消费方，而是本次 contr
 3. AccountQuery         SDK -> ORS
 4. AccountSnapshot      ORS -> SDK
 5. MarketUpdate         ORS -> SDK
-6. SessionEvent         ORS -> SDK
+6. SessionEvent          ORS -> SDK
+7. ClientRegister       SDK -> ORS
+8. ClientRegisterResponse ORS -> SDK
 ```
 
 v4 不使用 v3 的 `OrderUpdate` / `Trade` / `CancelState` 作为 canonical 订单消息。  
@@ -262,6 +264,7 @@ stream 2: RESPONSE     ORS -> SDK
 stream 3: ACCOUNT      ORS -> SDK
 stream 4: MARKET_DATA  ORS -> SDK
 stream 5: SESSION      ORS -> SDK
+stream 6: CONTROL      SDK -> ORS / ORS -> SDK
 ```
 
 规则：
@@ -270,6 +273,7 @@ stream 5: SESSION      ORS -> SDK
 - SBE header 带 schemaId/templateId/version
 - `OrderID` 是 request/response 关联键
 - `requestId` 是 account query 关联键
+- `ClientRegisterResponse.clientId` 是 OrderID 的高位编号来源
 - 不在 ORS/SDK 之间重新引入 `orderRef` 和 v3 `sourcePublicationEpoch` 语义
 - 断线重连、sequence、epoch 如果需要，放在 Aeron/SDK envelope，不塞进公司 `RequestMsg/ResponseMsg` 字段
 
@@ -302,7 +306,39 @@ stream 5: SESSION      ORS -> SDK
 
 ---
 
-## 11. SimVenue / FastTrade 迁移
+## 11. ClientRegister
+
+v4 没有 SHM ClientStore，但 OrderID 仍按 `tb_origin` 的 `clientId * 1_000_000 + orderCount` 规则。
+
+因此需要在 CONTROL stream 增加：
+
+```text
+ClientRegister
+  requestId       uint64
+  instanceId      char[64]
+  accountId       char[11]
+  environment     char[16]
+  timestamp       uint64
+
+ClientRegisterResponse
+  requestId       uint64
+  clientId        uint32
+  errorCode       uint32
+  errorMsg        char[128]
+  timestamp       uint64
+```
+
+规则：
+
+- SDK 启动先注册，拿到 `clientId` 后才能发订单
+- `clientId` 在 ORS 账户范围内唯一
+- ORS 重启后注册关系重新建立
+- `clientId` 分配和释放规则必须防止进程重启后复用仍存活订单的 OrderID
+- 不把 ClientStore 的 SHM 语义带进请求/响应消息
+
+---
+
+## 12. SimVenue / FastTrade 迁移
 
 v4 不是 ORS 专用 schema；SimVenue 和 FastTrade 必须使用同一份 v4 消息语义。
 
@@ -335,7 +371,7 @@ contract 4.0.0
 
 ---
 
-## 12. 待确认
+## 13. 待确认
 
 1. `OrsResponse.ExchangeOrderId` 是否严格保留公司 `double` 类型。
 2. `StrategyID` 是否进入 Aeron envelope，还是完全不进 v4。

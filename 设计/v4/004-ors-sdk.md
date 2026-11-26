@@ -179,7 +179,8 @@ OrsClient 启动
   -> SDK 用 clientId * 1_000_000 + orderCount
 ```
 
-不能简单地固定 `clientId=0` 并在进程重启后从 0 重新计数；否则会与 ORS 里仍存活的订单发生 OrderID 冲突。  
+不能简单地固定 `clientId=0` 并在进程重启后从 0 重新计数；否则会与 ORS 里仍存活的订单发生 OrderID 冲突。
+
 ClientRegister 需要加入 contract v4 的控制消息；具体字段在 contract 实现阶段补。
 
 SDK 侧：
@@ -270,7 +271,8 @@ LIVE: FastTrade -> OrsClient -> Aeron -> ORS v4 -> CTP
 SIM:  FastTrade -> OrsClient -> Aeron -> SimVenue v4
 ```
 
-FastTrade 在启动参数/配置中选择目标；SDK 只负责连接对应 ORS/SimVenue。  
+FastTrade 在启动参数/配置中选择目标；SDK 只负责连接对应 ORS/SimVenue。
+
 SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两套行为。
 
 ---
