@@ -194,6 +194,74 @@ int clientId
 
 ---
 
+## 5.1 Account query
+
+`queryAccount` 是跳过订单/RMS 的只读查询，返回 `AccountSnapshot`，不改变订单状态。
+
+```text
+OrsClient.queryAccount(AccountQuery)
+  -> REQUEST stream (stream 1)
+  -> ORS ORSServer::QueryAccount
+  -> CTP ReqQryTradingAccount
+  -> CTP OnRspQryTradingAccount
+  -> ORS AccountSnapshot
+  -> ACCOUNT stream (stream 3)
+  -> OrsListener.onAccount(AccountSnapshot)
+```
+
+### 请求
+
+调用方设置：
+
+```text
+requestId  客户端生成的本地关联键，不能为 0
+accountId  当前 ORS 账户
+timestamp  发送时间，纳秒
+```
+
+`requestId` 在 SDK 的 pending 集合内必须唯一，响应返回前不能复用。
+
+### 响应
+
+成功和失败都返回 `AccountSnapshot`：
+
+```text
+requestId  原请求的 requestId
+accountId  当前账户
+errorCode  0 = 成功，非 0 = 失败/超时
+errorMsg   失败原因
+timestamp  ORS 发送时间
+```
+
+没有 `AccountQueryResponse` contract 消息。
+
+### 超时
+
+```text
+ORS_ACCOUNT_QUERY_TIMEOUT_MS = 5000
+SDK requestTimeout          = 6000（默认）
+```
+
+规则：
+
+- ORS 在 `ReqQryTradingAccount` 成功后开始计时
+- ORS 超时后返回 `AccountSnapshot.errorCode = ORS_ACCOUNT_QUERY_TIMEOUT`
+- SDK 的 `requestTimeout` 必须大于 ORS 超时，让 ORS 的错误快照先到
+- SDK 超时后移除 pending，调用 `onError`，不等待迟到响应
+- 超时后迟到的 `AccountSnapshot` 按 requestId 找不到 pending，必须丢弃
+- SDK 不自动重发 account query；重试由调用方决定
+- ORS 对 account query 有 1000 ms 节流；SDK 收到 `QUERY_BUSY/QUERY_THROTTLED` 后由调用方决定何时重试
+
+SDK 内部：
+
+```text
+pendingAccountQueries: requestId -> deadline
+onAccount(snapshot): 按 snapshot.requestId 移除 pending
+timeout tick: 移除过期 requestId，onError
+```
+
+---
+
 ## 6. 线程模型
 
 Aeron Java client 是单 poller 模式：

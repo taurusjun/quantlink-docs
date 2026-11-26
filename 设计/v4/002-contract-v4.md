@@ -210,11 +210,27 @@ AccountSnapshot
   timestamp       uint64
 ```
 
-待确认：
+已定：
 
-- 是否只保留 `balance/available/margin`，还是保留当前 contract 的完整字段
-- 账户查询是“快照”还是“请求-响应”；建议请求-响应 + snapshot 体
-- 账户查询失败是否单独回 `errorCode`，还是复用 `OrsResponse`；建议单独消息，避免污染订单状态
+- 使用完整字段，不只保留 `balance/available/margin`
+- 请求-响应语义：SDK 发 `AccountQuery`，ORS 回一个 `AccountSnapshot`
+- 不新增 `AccountQueryResponse`；成功、失败、超时都回 `AccountSnapshot`
+- `AccountSnapshot.errorCode == 0` 表示成功；非 0 表示失败
+- `AccountQuery` 和 `AccountSnapshot` 都带 `requestId`，SDK 用它关联请求
+- `AccountQuery` 走 REQUEST stream（stream 1），`AccountSnapshot` 走 ACCOUNT stream（stream 3）
+- 超时不是 contract 字段；由 SDK 和 ORS 各自本地配置，SDK 超时应晚于 ORS 超时
+- position/instrument 查询不在 account query 消息里；初始化使用内部表，不新增 `PositionQuery` contract
+
+错误响应示例：
+
+```text
+AccountSnapshot
+  requestId = 原 AccountQuery.requestId
+  accountId = 当前账户
+  errorCode = ORS_ACCOUNT_QUERY_TIMEOUT / CTP ErrorID
+  errorMsg  = 可读原因
+  timestamp = ORS 发送时间
+```
 
 持仓查询不在本次“只改 account query”范围内；如果 contract 需要，单独加 `PositionQuery`。
 

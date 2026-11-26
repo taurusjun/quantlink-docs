@@ -40,6 +40,7 @@ contract 固定 1.0.0；不引入旧 contract
 - 查询失败/空仓：不能回退到旧内存持仓，也不能让 session 进入 READY；空查询结果必须清空持仓表。
 - Aeron back-pressure 或 publication 未连接：不能静默丢订单/撤单响应，必须上抛失败并保持订单状态可恢复。
 - `ClientRegister` 重启复用：不能让新 `clientId` 复用 CTP 上仍存活订单的 OrderID 段。
+- AccountQuery 超时：ORS 必须清 pending 并返回错误 snapshot；超时后迟到的 CTP 回调必须丢弃。
 
 ---
 
@@ -66,7 +67,7 @@ contract 固定 1.0.0；不引入旧 contract
 - 测试：`ctp/tests/CoreLinkTest.cpp`
 
 **接口：**
-- `struct OrsConfig { std::string brokerId, investorId, password, authCode, appId, tradeFront, mdFront, flowDir, logPath, accountId, venueId, orsId; int requestStream, responseStream, accountStream, marketDataStream, sessionStream, controlStream; };`
+- `struct OrsConfig { std::string brokerId, investorId, password, authCode, appId, tradeFront, mdFront, flowDir, logPath, accountId, venueId, orsId; int requestStream, responseStream, accountStream, marketDataStream, sessionStream, controlStream; int accountQueryTimeoutMs; };`
 - `OrsTypes.h` 定义 transport 使用的值：
   - `struct AccountQueryRequest { uint64_t requestId; std::string accountId; uint64_t timestamp; };`
   - `struct AccountSnapshot { uint64_t requestId; std::string accountId, tradingDay; double balance, available, margin, frozenMargin, commission, closeProfit, positionProfit, deposit, withdraw; uint32_t errorCode; std::string errorMsg; uint64_t timestamp; };`
@@ -720,7 +721,7 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 - `std::vector<PositionRow> mergePositionRows(std::vector<PositionRow> rows);`
 - `bool ORSServer::QueryAccount(const AccountQueryRequest&);`
 - `bool ORSServer::acceptAccountResponse(int ctpRequestId, const CThostFtdcTradingAccountField* row, const CThostFtdcRspInfoField* error);`
-- `class AccountQueryState { bool tryBegin(uint64_t requestId, std::chrono::steady_clock::time_point now); void bindCtpRequest(int ctpRequestId); std::optional<uint64_t> requestIdFor(int ctpRequestId) const; void finish(); };`
+- `class AccountQueryState { bool tryBegin(uint64_t requestId, std::chrono::steady_clock::time_point now, std::chrono::milliseconds timeout); void bindCtpRequest(int ctpRequestId); std::optional<uint64_t> requestIdFor(int ctpRequestId) const; std::optional<uint64_t> expire(std::chrono::steady_clock::time_point now); void finish(); };`
 
 **查询代码来源：**
 - `AccountQuery` / `AccountSnapshot` 字段：contract 1.0.0，不使用旧 contract。
@@ -737,6 +738,8 @@ git commit -m "feat(ors): allocate client ids with restart safety"
 void successEmitsSnapshotWithRequestId();
 void ctpErrorEmitsErrorSnapshotAndKeepsSessionState();
 void secondQueryInsideIntervalIsRejected();
+void timeoutEmitsErrorSnapshotAndClearsPending();
+void lateAccountSnapshotAfterTimeoutIsIgnored();
 void successDoesNotChangeReadyStateOrOrderMap();
 void nanAndDblMaxAreSanitized();
 
@@ -744,6 +747,8 @@ void nanAndDblMaxAreSanitized();
 void stateRejectsSecondQueryInsideInterval();
 void stateMapsCtpRequestIdBackToSdkRequestId();
 void finishAllowsNextQuery();
+void expireReturnsRequestIdAndClearsPending();
+void lateResponseAfterExpireIsIgnored();
 ```
 
 - [ ] **步骤 2：运行测试，确认失败**
@@ -770,13 +775,22 @@ CloseProfit, PositionProfit, Deposit, Withdraw
 
 `requestId` 是 SDK 查询关联键；`tradingDay` 来自 CTP 行。`DBL_MAX` 和 NaN 映射为 `0.0`。
 
-`AccountQueryState::tryBegin` 负责 account query 的 pending 和 1000 ms 节流；间隔内第二次查询返回拒绝结果，不能静默丢弃。它只保存 requestId 关联，不发送请求、不处理超时/重试/回调顺序。position/instrument 启动查询使用启动屏障和退避重试，不使用这个状态。
+`AccountQueryState::tryBegin` 负责 account query 的 pending 和 1000 ms 节流，并设置 `deadline = now + accountQueryTimeoutMs`；间隔内第二次查询返回拒绝结果，不能静默丢弃。它只保存 requestId 关联和 deadline，不发送请求、不处理回调顺序。position/instrument 启动查询使用启动屏障和退避重试，不使用这个状态。
+
+默认值：
+
+```text
+accountQueryTimeoutMs = 5000
+SDK requestTimeout    = 6000
+```
+
+ORS 启动一个轻量 watchdog（或复用现有主循环 tick），周期调用 `AccountQueryState::expire(now)`。`expire` 返回原 requestId 时，`ORSServer` 发送 `AccountSnapshot.errorCode = ORS_ACCOUNT_QUERY_TIMEOUT` 并结束 pending。超时后迟到的 CTP 回调因 `requestIdFor` 无匹配而丢弃。
 
 - [ ] **步骤 4：接入 CTP 回调**
 
 `ORSServer::QueryAccount(AccountQueryRequest)` 先调用 `AccountQueryState::tryBegin`，成功且 READY 时调用 `ReqQryTradingAccount`，再 `bindCtpRequest`。`AccountQueryState` 是 `ORSServer` 成员。
 
-`OnRspQryTradingAccount` 调用 `acceptAccountResponse`，先用 `requestIdFor(nRequestID)` 找到 SDK requestId，再映射为 `AccountSnapshot` 并调用 `transport.sendAccount`；错误或空结果发布错误 snapshot，最后 `finish()`。它不得调用 `PushUpdate`、修改 `m_ordLocalMap` 或改变 READY。
+`OnRspQryTradingAccount` 调用 `acceptAccountResponse`，先用 `requestIdFor(nRequestID)` 找到 SDK requestId；找不到说明已超时或不是本进程请求，直接丢弃。找到后再映射为 `AccountSnapshot` 并调用 `transport.sendAccount`；错误或空结果发布错误 snapshot，最后 `finish()`。它不得调用 `PushUpdate`、修改 `m_ordLocalMap` 或改变 READY。
 
 - [ ] **步骤 5：运行测试**
 
@@ -1005,7 +1019,8 @@ git commit -m "test(ors): record live gate"
 - **不做 SHM 兼容层：** `OrsTransport` 是新 seam；不要把 `ShmMgr` 藏在适配器后面。
 - **不做文件回退：** 持仓/合约状态只来自 CTP 查询；查询失败就是启动失败，不能读旧 CSV。
 - **Contract 代码生成在外部：** ORS 只使用 contract 仓库生成的头文件，不复制或重写 SBE schema。
-- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping`（纯字段映射）和 `AccountQueryState`（account query pending/requestId/节流）。
+- **不引入独立 query service：** `ReqQry...` / `OnRspQry...` 都放在 `ORSServer`，与 `quantlink-trading` 生产 ORS 一致；只抽 `QueryMapping`（纯字段映射）和 `AccountQueryState`（account query pending/requestId/节流/超时）。
+- **AccountQuery 超时在 ORS 侧清理：** ORS 5000 ms，SDK 6000 ms；SDK 超时不能代替 ORS `expire`，否则 ORS pending 会卡住。
 - **只新增 account query：** position/instrument 查询是初始化语义，不是新订单状态机。
 - **原地重写：** 所有新代码直接进入 `ctp/`，不建 `ctp/v4`，不保留 v3/v4 双轨。
 
