@@ -1,4 +1,4 @@
-# v4 Contract 方案
+# Contract 方案（v4 设计）
 
 - 状态：DRAFT（2026-11-26）
 - 范围：ORS ↔ SDK 的 Aeron 消息 schema
@@ -11,9 +11,9 @@
 
 ## 1. 结论
 
-**重写 ORS contract v4，不在 v3 `OrderRequest/OrderUpdate` 上打补丁。**
+**重写 ORS contract，不在旧 `OrderRequest/OrderUpdate` 上打补丁。**
 
-v4 contract 的职责只有：
+contract 的职责只有：
 
 ```text
 把公司 ORS 的 RequestMsg / ResponseMsg 和行情、账户查询编码成 Aeron frame
@@ -25,49 +25,49 @@ v4 contract 的职责只有：
 
 ## 2. 版本与仓库策略
 
-**v4 是唯一 active contract。SimVenue、FastTrade、ORS、SDK 全部在同一版本迁移。**
+**contract 1.0.0 是唯一 active contract。SimVenue、FastTrade、ORS、SDK 全部使用同一版本。**
 
 ```text
 quantlink-venue-contract/
   abi/sbe/
-    quantlink-fin-sbe.xml          # v4.0.0，唯一 active schema
+    quantlink-fin-sbe.xml          # 1.0.0，唯一 active schema
 ```
 
 生成代码使用统一包名：
 
 ```text
-com.quantlink.contract.v4
+com.quantlink.contract.sbe
 ```
 
 发布 artifact：
 
 ```text
-com.quantlink.contract:venue-contract:4.0.0
+com.quantlink.contract:venue-contract:1.0.0
 ```
 
 规则：
 
 - v3 schema 冻结为历史版本，不再新增字段、不再作为 active 依赖
 - 不保留 v3/v4 双 canonical，不做兼容 shim
-- contract 4.0.0 的升级必须和 SimVenue、FastTrade、ORS、SDK 同批发布
-- 版本矩阵锁定 contract 4.0.0 与各仓 SHA，禁止 v3 consumer 混入 v4 release
+- contract 1.0.0 的升级必须和 SimVenue、FastTrade、ORS、SDK 同批发布
+- 版本矩阵锁定 contract 1.0.0 与各仓 SHA，禁止 v3 consumer 混入 new release
 
 迁移顺序：
 
 ```text
-1. 定义 v4 schema + 生成代码
-2. ORS/SDK 接 v4
-3. SimVenue 接 v4
-4. FastTrade 接 v4
+1. 定义新 schema + 生成代码
+2. ORS/SDK 接新 contract
+3. SimVenue 接新 contract
+4. FastTrade 接新 contract
 5. 删除 active 构建中的 v3 依赖
-6. 版本矩阵切到 contract 4.0.0
+6. 版本矩阵切到 contract 1.0.0
 ```
 
 SimVenue 和 FastTrade 不是“以后再说”的消费方，而是本次 contract 重写的必改项。
 
 ---
 
-## 3. v4 消息集
+## 3. Contract 消息集
 
 ```text
 1. OrsRequest           SDK -> ORS
@@ -80,7 +80,7 @@ SimVenue 和 FastTrade 不是“以后再说”的消费方，而是本次 contr
 8. ClientRegisterResponse ORS -> SDK
 ```
 
-v4 不使用 v3 的 `OrderUpdate` / `Trade` / `CancelState` 作为 canonical 订单消息。  
+contract 不使用旧的 `OrderUpdate` / `Trade` / `CancelState` 作为 canonical 订单消息。  
 订单事件全部由 `OrsResponse.ResponseType` 表达。
 
 ---
@@ -157,7 +157,7 @@ exchangeOrderId     double
 
 注意：
 
-- 公司 `ExchangeOrderId` 在 `ResponseMsg` 中是 `double`，v4 先按原类型保留；不要为了“看起来合理”改成 string，否则又改变语义
+- 公司 `ExchangeOrderId` 在 `ResponseMsg` 中是 `double`，contract 先按原类型保留；不要为了“看起来合理”改成 string，否则又改变语义
 - `ResponseType` 使用公司枚举，尤其保留：
   - `NEW_ORDER_CONFIRM`
   - `CANCEL_ORDER_CONFIRM`
@@ -175,14 +175,14 @@ exchangeOrderId     double
   - `MODIFY_REJECT_MIDDLE`
   - `CANCEL_ORDER_REJECT_MIDDLE`
 
-v4 不增加 `OrderStatus`、`CancelState`、`filledQty/remainingQty` 作为 canonical 字段。  
+contract 不增加 `OrderStatus`、`CancelState`、`filledQty/remainingQty` 作为 canonical 字段。  
 这些是 TradeBot 从公司 ResponseMsg 推导的本地状态，不是 ORS wire 语义。
 
 ---
 
 ## 6. Account query
 
-公司 CTP ORS 原始代码的 account query 基本未启用；v4 只在这里做业务改动。
+公司 CTP ORS 原始代码的 account query 基本未启用；contract 只在这里做业务改动。
 
 建议消息：
 
@@ -216,7 +216,7 @@ AccountSnapshot
 - 账户查询是“快照”还是“请求-响应”；建议请求-响应 + snapshot 体
 - 账户查询失败是否单独回 `errorCode`，还是复用 `OrsResponse`；建议单独消息，避免污染订单状态
 
-持仓查询不在本次“只改 account query”范围内；如果 v4 需要，单独加 `PositionQuery`。
+持仓查询不在本次“只改 account query”范围内；如果 contract 需要，单独加 `PositionQuery`。
 
 ---
 
@@ -252,7 +252,7 @@ bids[20] { price double, qty int32, orderCount int32 }
 asks[20] { price double, qty int32, orderCount int32 }
 ```
 
-具体字段是否全部进入 v4，需要按 TradeBot 实际消费字段裁剪；不能把 v3 `MarketData` 的 20 档结构直接当公司行情结构。
+具体字段是否全部进入 contract，需要按 TradeBot 实际消费字段裁剪；不能把 v3 `MarketData` 的 20 档结构直接当公司行情结构。
 
 ---
 
@@ -282,7 +282,7 @@ stream 6: CONTROL      SDK -> ORS / ORS -> SDK
 ## 9. 生成与测试
 
 - 使用现有 SBE 生成链路，生成 C++/Java
-- v4 包名与 v3 隔离，避免 classpath/类名冲突
+- contract 包名与旧包隔离，避免 classpath/类名冲突
 - 字段宽度、枚举值、字节序、字符串填充规则要有 golden frame 测试
 - 用公司 `RequestMsg/ResponseMsg` 的真实样例做 round-trip
 - 必须覆盖：
@@ -291,24 +291,24 @@ stream 6: CONTROL      SDK -> ORS / ORS -> SDK
   - `ORDER_ERROR`
   - account query 成功/失败
   - 固定宽度 UTF-8/ASCII 边界
-  - v3/v4 不混用
+  - 旧/新 contract 不混用
 
 ---
 
 ## 10. 不做
 
-- 不把 v3 `OrderStatus` / `CancelState` 改名为 v4
+- 不把旧 `OrderStatus` / `CancelState` 改名为新 contract
 - 不在 contract 中重新实现订单状态机
 - 不把 `CANCEL_ORDER_REJECT` 降级成普通订单拒绝
-- 不为了兼容 v3 在 v4 canonical schema 里保留两套订单字段
-- 不保留 v3/v4 双 active contract
-- 不让 SimVenue/FastTrade 继续以 v3 进入 v4 release
+- 不为了兼容旧 contract 在新 canonical schema 里保留两套订单字段
+- 不保留双 active contract
+- 不让 SimVenue/FastTrade 继续以 v3 进入 new release
 
 ---
 
 ## 11. ClientRegister
 
-v4 没有 SHM ClientStore，但 OrderID 仍按 `tb_origin` 的 `clientId * 1_000_000 + orderCount` 规则。
+contract 没有 SHM ClientStore，但 OrderID 仍按 `tb_origin` 的 `clientId * 1_000_000 + orderCount` 规则。
 
 因此需要在 CONTROL stream 增加：
 
@@ -340,34 +340,34 @@ ClientRegisterResponse
 
 ## 12. SimVenue / FastTrade 迁移
 
-v4 不是 ORS 专用 schema；SimVenue 和 FastTrade 必须使用同一份 v4 消息语义。
+contract 不是 ORS 专用 schema；SimVenue 和 FastTrade 必须使用同一份 v4 消息语义。
 
 ### SimVenue
 
-- 用 v4 `OrsRequest` / `OrsResponse` 模拟公司 ORS 的订单和撤单行为
-- 行情使用 v4 `MarketUpdate`
-- 账户/持仓使用 v4 `AccountSnapshot` / position 消息
+- 用 `OrsRequest` / `OrsResponse` 模拟公司 ORS 的订单和撤单行为
+- 行情使用 `MarketUpdate`
+- 账户/持仓使用 `AccountSnapshot` / position 消息
 - 必须覆盖 `CANCEL_ORDER_REJECT`、终态、未知撤单等公司行为
 - 不能继续发出 v3 `OrderUpdate` 状态机
 
 ### FastTrade
 
-- AccessSDK / TradeBot 订单接入改为 v4 `OrsRequest` / `OrsResponse`
+- AccessSDK / TradeBot 订单接入改为 `OrsRequest` / `OrsResponse`
 - 删除 v3 `OrderRequest/OrderUpdate/Trade` 依赖
 - 策略层仍可使用自己的策略订单视图，但不能把 v3 contract 状态当 ORS 权威
-- 与 SimVenue 联调使用同一 v4 artifact
+- 与 SimVenue 联调使用同一 contract artifact
 
 ### 发布门槛
 
 ```text
-contract 4.0.0
-  + ORS v4
-  + SDK v4
-  + SimVenue v4
-  + FastTrade v4
+contract 1.0.0
+  + ORS v4（设计版本）
+  + SDK v4（设计版本）
+  + SimVenue v4（设计版本）
+  + FastTrade v4（设计版本）
 ```
 
-任一消费方仍依赖 v3，不得发布 v4 版本矩阵。
+任一消费方仍依赖旧 contract，不得发布新版本矩阵。
 
 ---
 
@@ -377,5 +377,5 @@ contract 4.0.0
 2. `StrategyID` 是否进入 Aeron envelope，还是完全不进 v4。
 3. account query 字段是否按当前 `AccountSnapshot` 全集。
 4. MarketUpdate 是否由 ORS 发布，以及 TradeBot 实际需要哪些字段。
-5. 持仓查询是否也进 v4，还是保持公司 ORS 内部行为。
-6. SimVenue/FastTrade 的 v4 切换顺序和联调窗口。
+5. 持仓查询是否也进 contract，还是保持公司 ORS 内部行为。
+6. SimVenue/FastTrade 的 contract 切换顺序和联调窗口。

@@ -3,7 +3,7 @@
 - 状态：DRAFT（2026-11-26）
 - 使用方：`quantlink-fasttrade`
 - 实现：Java 25
-- 依赖：contract v4 Java 生成代码 + Aeron Java client
+- 依赖：contract 1.0.0 Java 生成代码 + Aeron Java client
 - 位置：独立工程 `quantlink-ors-sdk`，不放进 contract，也不放进 ORS 源码
 
 ---
@@ -30,7 +30,7 @@ SDK 负责：
 
 ```text
 Aeron 连接/重连
-contract v4 编解码
+contract 1.0.0 编解码
 OrderID 分配
 请求/响应关联
 超时和错误上抛
@@ -131,7 +131,7 @@ public interface OrsListener {
 
 ### 请求对象
 
-SDK 的请求对象是 contract v4 的 Java DTO/builder，不让 FastTrade 直接拼 SBE：
+SDK 的请求对象是 contract 1.0.0 的 Java DTO/builder，不让 FastTrade 直接拼 SBE：
 
 ```text
 OrsOrderRequest
@@ -181,7 +181,7 @@ OrsClient 启动
 
 不能简单地固定 `clientId=0` 并在进程重启后从 0 重新计数；否则会与 ORS 里仍存活的订单发生 OrderID 冲突。
 
-ClientRegister 需要加入 contract v4 的控制消息；具体字段在 contract 实现阶段补。
+ClientRegister 需要加入 contract 1.0.0 的控制消息；具体字段在 contract 实现阶段补。
 
 SDK 侧：
 
@@ -281,7 +281,7 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 
 单元测试：
 
-- contract v4 encode/decode golden frame
+- contract 1.0.0 encode/decode golden frame
 - OrderID 分配
 - 请求/响应关联
 - Aeron back-pressure 错误
@@ -321,4 +321,4 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 1. `ClientRegister` 的 Aeron 控制消息和 ORS 侧实现。
 2. `clientId` 的分配/释放规则，以及跨重启复用边界。
 3. OrderID 计数在交易日切换时是否重置；参考 tb_origin 的进程生命周期。
-4. ClientRegister 和 contract v4 的最终消息布局。
+4. ClientRegister 和 contract 1.0.0 的最终消息布局。
