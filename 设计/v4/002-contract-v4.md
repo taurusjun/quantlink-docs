@@ -80,7 +80,7 @@ SimVenue 和 FastTrade 不是“以后再说”的消费方，而是本次 contr
 8. ClientRegisterResponse ORS -> SDK
 ```
 
-contract 不使用旧的 `OrderUpdate` / `Trade` / `CancelState` 作为 canonical 订单消息。  
+contract 不使用旧的 `OrderUpdate` / `Trade` / `CancelState` 作为 canonical 订单消息。
 订单事件全部由 `OrsResponse.ResponseType` 表达。
 
 ---
@@ -175,7 +175,7 @@ exchangeOrderId     double
   - `MODIFY_REJECT_MIDDLE`
   - `CANCEL_ORDER_REJECT_MIDDLE`
 
-contract 不增加 `OrderStatus`、`CancelState`、`filledQty/remainingQty` 作为 canonical 字段。  
+contract 不增加 `OrderStatus`、`CancelState`、`filledQty/remainingQty` 作为 canonical 字段。
 这些是 TradeBot 从公司 ResponseMsg 推导的本地状态，不是 ORS wire 语义。
 
 ---

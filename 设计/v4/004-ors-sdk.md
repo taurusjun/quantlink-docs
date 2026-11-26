@@ -77,7 +77,7 @@ com.quantlink.ors:ors-sdk:4.0.0
 ```
 
 FastTrade 通过 Gradle/Maven 依赖该 artifact，不复制 SDK 源码。  
-contract 通过 `com.quantlink.contract:venue-contract:4.0.0` 引入。
+contract 通过 `com.quantlink.contract:venue-contract:1.0.0` 引入。
 
 ---
 
