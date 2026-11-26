@@ -194,7 +194,7 @@ int clientId
 
 ---
 
-## 5.1 Account query
+## 6. Account query
 
 `queryAccount` 是跳过订单/RMS 的只读查询，返回 `AccountSnapshot`，不改变订单状态。
 
@@ -262,7 +262,7 @@ timeout tick: 移除过期 requestId，onError
 
 ---
 
-## 6. 线程模型
+## 7. 线程模型
 
 Aeron Java client 是单 poller 模式：
 
@@ -283,7 +283,7 @@ Aeron Java client 是单 poller 模式：
 
 ---
 
-## 7. Aeron 可靠性
+## 8. Aeron 可靠性
 
 - `offer > 0` 才算发布成功
 - `BACK_PRESSURED` 有限重试；失败上抛 `OrsSdkException`
@@ -295,7 +295,7 @@ Aeron Java client 是单 poller 模式：
 
 ---
 
-## 8. 与 FastTrade 当前 AccessSDK 的关系
+## 9. 与 FastTrade 当前 AccessSDK 的关系
 
 当前 FastTrade `access-sdk` 是 v3 venue-contract 客户端：
 
@@ -323,7 +323,7 @@ OrsConfig（账户级，不按交易所分 channel）
 
 ---
 
-## 9. SIM 与 LIVE（参考 tb_origin）
+## 10. SIM 与 LIVE（参考 tb_origin）
 
 按 `tb_origin` 的方式，由上层决定运行模式：
 
@@ -345,7 +345,7 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 
 ---
 
-## 10. 测试
+## 11. 测试
 
 单元测试：
 
@@ -366,7 +366,7 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 
 ---
 
-## 11. 不做
+## 12. 不做
 
 - 不把 SDK 放进 `quantlink-venue-contract`
 - 不把 SDK 放进 ORS 核心源码
@@ -376,7 +376,7 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 
 ---
 
-## 12. 已确认
+## 13. 已确认
 
 1. SDK 使用独立仓库 `quantlink-ors-sdk`。
 2. 使用 Java 回调接口，不使用 `CompletableFuture` 作为订单主链路。
@@ -384,7 +384,7 @@ SimVenue 必须实现同一 v4 语义，否则 SDK 在 SIM/LIVE 下会产生两�
 4. 同时提供 Java 版行情和账户监听 API。
 5. SIM/LIVE 由 FastTrade 上层决定，SDK 只连接目标 ORS/SimVenue。
 
-## 13. 待确认
+## 14. 待确认
 
 1. `ClientRegister` 的 Aeron 控制消息和 ORS 侧实现。
 2. `clientId` 的分配/释放规则，以及跨重启复用边界。
