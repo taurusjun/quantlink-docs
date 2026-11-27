@@ -52,6 +52,8 @@
 | `order_id` | string | `OrderInfo.localID` | ORS 本地订单号 |
 | `order_ref` | string | `OrderInfo.exchID` | CTP `OrderRef` |
 | `exchange_order_id` | string | `OrderInfo.OrderSysID` | CTP `OrderSysID`，可为空 |
+| `front_id` | number | `OrderInfo.frontId` | CTP FrontID |
+| `session_id` | number | `OrderInfo.sessionId` | CTP SessionID |
 | `exchange_id` | string | `OrderInfo.exchange` | `SHFE` / `CFFEX` / `ZCE` / `DCE` / `GFEX` / `INE` |
 | `instrument` | string | `ScripCode` | 合约 |
 | `account_id` | string | `ClientID` | 账户 |
