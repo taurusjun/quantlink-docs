@@ -50,6 +50,7 @@
 | `type` | string | 固定 | 固定 `order` |
 | `event` | string | 代码 | 订单事件名 |
 | `order_id` | string | `OrderInfo.localID` | ORS 本地订单号 |
+| `strategy_id` | number | `OrderInfo.strategyId` | TB 策略实例 ID；0 表示无策略/外部订单 |
 | `order_ref` | string | `OrderInfo.exchID` | CTP `OrderRef` |
 | `exchange_order_id` | string | `OrderInfo.OrderSysID` | CTP `OrderSysID`，可为空 |
 | `front_id` | number | `OrderInfo.frontId` | CTP FrontID |
@@ -75,6 +76,8 @@
 | `latency_us` | number | 从发出到确认的耗时，可选 |
 
 不记录 `tempTimeStamp`。统一使用外层 `ts`；如果确实需要纳秒级时间，再另加 `event_time_ns`，不放进 `message`。
+
+`client_id` 由 ORS 分配，只用于 `order_id` 命名空间和回报归属：TB 用 `client_id * 1,000,000 + count` 生成 `order_id`，ORS 校验高位段属于已注册客户端，SDK 过滤非本客户端回报。`client_id` 不是策略身份，不替代 `strategy_id`。
 
 ## 4. 状态语义
 
