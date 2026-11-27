@@ -81,6 +81,7 @@ Grafana（VictoriaLogs 数据源、Explore、Dashboard）
   "host": "VM-0-10-rockylinux",
   "pid": 12345,
   "thread": "ors-poll",
+  "type": "order",
   "event": "ors.order.ack",
   "message": "order acknowledged"
 }
@@ -96,10 +97,23 @@ Grafana（VictoriaLogs 数据源、Explore、Dashboard）
 | `host` | string | 是 | 主机名 |
 | `pid` | integer | 是 | 进程 ID |
 | `thread` | string | 否 | 线程名；建议 C++ 和 Java 都填 |
+| `type` | string | 是 | 业务语义分类，见 3.3 |
 | `event` | string | 是 | 稳定事件名，见 3.3 |
-| `message` | string | 是 | 人类可读描述，不作为机器解析依据 |
+| `message` | string | 是 | 纯人类可读语义；禁止 ID、时间戳、函数名、`key=value`、管道分隔字段 |
 
-### 3.3 事件名
+### 3.3 `type` 与事件名
+
+`type` 表示业务语义，不是日志级别：
+
+| type | 用途 |
+|---|---|
+| `order` | 新单、撤单、成交、拒单、订单状态 |
+| `account` | 账户、持仓、资金、查询结果 |
+| `market_data` | 行情订阅、行情 tick、行情连接 |
+| `session` | 登录、认证、断线、会话、启动 |
+| `rms` | 风控检查、风控拒绝、风控告警 |
+| `transport` | Aeron、消息发布、背压 |
+| `system` | 指标、配置、内部状态、未分类 |
 
 新代码统一使用：
 
@@ -132,7 +146,31 @@ ors_sdk.client.registered
 - 旧 `ORS_LOG` 函数名事件保留但视为 legacy，查询服务不依赖它做业务统计；
 - 新代码不再新增 legacy 事件。
 
-### 3.4 可选字段
+### 3.4 `message` 规范
+
+`message` 只描述“发生了什么”，不承载查询字段。正确：
+
+```json
+{"event":"ors.md.subscribe_response","instrument":"ao_o","message":"market data subscription response"}
+{"event":"ors.instrument.definition","instrument":"PX","round_lot_for_value_calc":1,"price_factor":1,"message":"instrument definition loaded"}
+```
+
+禁止：
+
+```text
+|1795782853359670333|Instrument ad_o
+Instument name: PX|RoundLotForValueCalc : 1|PriceFactor : 1
+message=order_id=123 price=725
+```
+
+- 时间放 `ts`，不要放 `message`；
+- 函数名放 `event`，不要放 `message`；
+- 合约、订单号、价格、数量、错误码放独立字段；
+- 不拼接 `key=value` 或管道分隔字符串；
+- 同一事件的消息文本保持稳定，便于聚合；
+- 需要保留原始报文时，放 `raw` 字段，不放 `message`。
+
+### 3.5 可选字段
 
 常用字段放顶层，方便索引：
 
@@ -150,7 +188,7 @@ ors_sdk.client.registered
 | `error_message` | string | 错误描述，已脱敏 |
 | `duration_us` | integer | 耗时，微秒 |
 | `trace_id` | string | 可选；当前 contract 没有 trace 字段，暂不保证跨 Aeron 传播 |
-| `attrs` | object | 组件扩展字段，见 3.5 |
+| `attrs` | object | 组件扩展字段，见 3.6 |
 
 ID 统一用字符串：
 
@@ -158,7 +196,7 @@ ID 统一用字符串：
 {"order_id":"1000001","client_id":"1","request_id":"42"}
 ```
 
-### 3.5 `attrs`
+### 3.6 `attrs`
 
 组件私有字段放 `attrs`，只允许一层对象：
 
@@ -180,7 +218,7 @@ ID 统一用字符串：
 - 高频循环日志必须限流或降级；
 - 当前 `setExchangeInstrDefinitionMap` 逐合约刷日志，接入前要降到 DEBUG 或采样。
 
-### 3.6 级别与时间
+### 3.7 级别与时间
 
 | level | 用途 |
 |---|---|
@@ -195,7 +233,7 @@ ID 统一用字符串：
 - 告警级别放 `attrs.severity`（`P0/P1/P2/P3`），不要滥用 `level`；
 - 不能把闭市正常拒单写成 `CRITICAL`。
 
-### 3.7 安全
+### 3.8 安全
 
 禁止记录：
 
@@ -211,21 +249,21 @@ token / secret / api_key
 - `account_id/order_id` 可以记录，但查询服务必须做权限控制；
 - Vector 侧再做一层 key 级脱敏，不能把脱敏完全依赖调用方。
 
-### 3.8 示例
+### 3.9 示例
 
 订单生命周期：
 
 ```json
-{"schema_version":"1","ts":"2026-11-27T09:30:12.345Z","level":"INFO","service":"ors","instance":"ors-simnow","host":"VM-0-10-rockylinux","pid":12345,"thread":"ors-poll","event":"ors.order.ack","message":"order acknowledged","order_id":"1000001","order_ref":"000000000001","client_id":"1","account_id":"simnow","instrument":"au2612"}
+{"schema_version":"1","ts":"2026-11-27T09:30:12.345Z","level":"INFO","service":"ors","instance":"ors-simnow","host":"VM-0-10-rockylinux","pid":12345,"thread":"ors-poll","type":"order","event":"ors.order.ack","message":"order acknowledged","order_id":"1000001","order_ref":"000000000001","client_id":"1","account_id":"simnow","instrument":"au2612"}
 ```
 
 启动报警：
 
 ```json
-{"schema_version":"1","ts":"2026-11-27T09:30:12.345Z","level":"ERROR","service":"ors","instance":"ors-simnow","host":"VM-0-10-rockylinux","pid":12345,"thread":"main","event":"ors.startup.live_orders","message":"CTP has live orders at startup","error_code":"LIVE_ORDERS","attrs":{"severity":"P1","count":2,"order_refs":["000000000001","000000000002"]}}
+{"schema_version":"1","ts":"2026-11-27T09:30:12.345Z","level":"ERROR","service":"ors","instance":"ors-simnow","host":"VM-0-10-rockylinux","pid":12345,"thread":"main","type":"system","event":"ors.startup.live_orders","message":"CTP has live orders at startup","error_code":"LIVE_ORDERS","attrs":{"severity":"P1","count":2,"order_refs":["000000000001","000000000002"]}}
 ```
 
-### 3.9 C++ 与 Java 落地
+### 3.10 C++ 与 Java 落地
 
 C++ ORS：
 
@@ -589,7 +627,7 @@ curl -sG http://127.0.0.1:9428/select/logsql/query \
 第一阶段验收项：
 
 1. 一条测试 JSON 写入后，Grafana 能查到；
-2. 必填字段 `schema_version/ts/level/service/instance/host/pid/event/message` 可见；
+2. 必填字段 `schema_version/ts/level/service/instance/host/pid/type/event/message` 可见；
 3. `order_id` 能查出完整订单链路；
 4. ORS 日志轮转后 Vector 继续采集；
 5. 重启 Vector 后从 checkpoint 继续，不重复大量数据；
@@ -690,6 +728,7 @@ CREATE TABLE quantlink_logs.events
     host           LowCardinality(String),
     pid            UInt32,
     thread         LowCardinality(String),
+    type           LowCardinality(String),
     event          LowCardinality(String),
     message        String,
     order_id       String,
