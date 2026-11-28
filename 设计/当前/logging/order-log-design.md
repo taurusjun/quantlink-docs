@@ -74,7 +74,7 @@
 | `error_code` | string | CTP/ORS 错误码，字符串 |
 | `error_message` | string | 错误描述，已脱敏 |
 | `latency_us` | number | 从发出到确认的耗时，可选 |
-| `exchange_trade_id` | string | 交易所逐笔成交号；SimVenue 使用 `sim-<tradeId>` |
+| `exchange_trade_id` | string | 交易所逐笔成交号；SimVenue 使用 `sim-<orderRef>-<tradeId>` |
 | `source` | string | `ctp_order_report` / `ctp_trade` / `sim_exchange` |
 | `raw_status` | string | CTP/SimVenue 原始状态值 |
 | `raw_status_name` | string | 原始状态名，如 `AllTraded` |
@@ -335,7 +335,7 @@ Java 使用同一个字段表和事件名，通过 `quantlink-java-logging` 的 
 | `filled_quantity` / `remaining_quantity` | 成交/剩余 |
 | `status` | `submitted/accepted/partially_filled/filled/canceled/rejected` |
 | `error_code` / `error_message` | 场馆错误 |
-| `exchange_trade_id` | SimVenue 生成的 `sim-<tradeId>` |
+| `exchange_trade_id` | SimVenue 生成的 `sim-<orderRef>-<tradeId>` |
 | `source` | `sim_exchange` |
 | `raw_status` / `raw_status_name` | `SimOrderStatus` 原值/名称 |
 
