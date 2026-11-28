@@ -74,6 +74,10 @@
 | `error_code` | string | CTP/ORS 错误码，字符串 |
 | `error_message` | string | 错误描述，已脱敏 |
 | `latency_us` | number | 从发出到确认的耗时，可选 |
+| `exchange_trade_id` | string | 交易所逐笔成交号；SimVenue 使用 `sim-<tradeId>` |
+| `source` | string | `ctp_order_report` / `ctp_trade` / `sim_exchange` |
+| `raw_status` | string | CTP/SimVenue 原始状态值 |
+| `raw_status_name` | string | 原始状态名，如 `AllTraded` |
 
 不记录 `tempTimeStamp`。统一使用外层 `ts`；如果确实需要纳秒级时间，再另加 `event_time_ns`，不放进 `message`。
 
@@ -130,10 +134,14 @@
 | `ors.order.canceled` | `OnRtnOrder` Canceled | INFO | `canceled` |
 | `ors.order.cancel_rejected` | `OnRspOrderAction`/`OnErrRtnOrderAction` | ERROR | `rejected` |
 | `ors.order.trade` | `OnRtnTrade` | INFO | `partially_filled` / `filled` |
+| `ors.order.status` | `OnRtnOrder` 状态变化 | INFO/WARN | CTP `OrderStatus` 归一化 |
 
 说明：
 
 - **不新增** `ors.order.filled` 和 `ors.order.trade` 两条重复日志；成交事件统一用 `ors.order.trade`，用 `status` 区分部分/全部成交。
+- `ors.order.status` 是 CTP 状态审计流，覆盖 `AllTraded/PartTradedQueueing/NoTradeQueueing/Canceled` 等；同一状态重复回调不重复记录。
+- 状态审计和成交统计必须分开：状态流看 `ors.order.status`，成交量/价只能用 `ors.order.trade`，不能相加。
+- `exchange_trade_id` 只出现在 trade 事件。
 - `PushUpdate` 中原来的 `NC/CC` 日志是重复状态记录，迁移时删除；如果需要延迟指标，作为 `latency_us` 字段附加到 accepted/canceled 事件。
 - `OnRtnOrder` 的 start/end 日志删除。
 - `SendCancelOrder` 中的 `std::cout` 改为结构化 `ors.order.cancel_requested`，或者如果已有等价日志则删除。
@@ -327,6 +335,11 @@ Java 使用同一个字段表和事件名，通过 `quantlink-java-logging` 的 
 | `filled_quantity` / `remaining_quantity` | 成交/剩余 |
 | `status` | `submitted/accepted/partially_filled/filled/canceled/rejected` |
 | `error_code` / `error_message` | 场馆错误 |
+| `exchange_trade_id` | SimVenue 生成的 `sim-<tradeId>` |
+| `source` | `sim_exchange` |
+| `raw_status` / `raw_status_name` | `SimOrderStatus` 原值/名称 |
+
+SimVenue 还输出 `simvenue.order.status`，覆盖 `OPEN/PARTIAL/FILLED/CANCELED/REJECTED`；成交仍然只写 `simvenue.order.trade`。
 
 事件映射：
 
