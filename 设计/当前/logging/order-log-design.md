@@ -96,6 +96,7 @@
 | `canceled` | 已撤单 |
 | `rejected` | 新单/撤单被拒 |
 | `cancel_requested` | 已发出撤单请求，等待确认 |
+| `waiting` | CTP 已接收报单，等待交易所明确状态 |
 | `unknown` | 未识别状态 |
 
 ### 4.2 CTP 映射
@@ -106,11 +107,11 @@
 - `THOST_FTDC_OST_PartTradedQueueing` → `partially_filled`
 - `THOST_FTDC_OST_NoTradeQueueing` → `accepted`
 - `THOST_FTDC_OST_Canceled` → `canceled`
-- `THOST_FTDC_OST_Unknown` → `submitted`
+- `THOST_FTDC_OST_Unknown` → `waiting`
 
 `OrderSubmitStatus`：
 
-- `InsertSubmitted` + `Unknown` → `submitted`
+- `InsertSubmitted` + `Unknown` → `waiting`
 - `Accepted` + 队列状态 → `accepted`
 - `InsertRejected` → `rejected`
 
